@@ -347,7 +347,7 @@
       <div x-show="activeTab === 'texts'" class="space-y-8">
         
         <!-- Saved Texts -->
-        <div class="bg-white p-6 rounded-2xl shadow border border-gray-100">
+        <div class="p-6">
           <h2 class="text-2xl font-semibold text-gray-800 mb-6">📚 Your Saved Texts</h2>
 
           <div class="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
@@ -444,7 +444,7 @@
       </div>
       
       <!-- Practice Tab -->
-        <div x-show="activeTab === 'practice'" class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
+        <div x-show="activeTab === 'practice'" class="px-6 max-w-2xl mx-auto">
           <!-- Practice Home -->
           <div 
               x-show="!currentPracticeItem" 
@@ -506,7 +506,7 @@
             </div>
 
             <!-- Start Button -->
-            <div class="pt-6">
+            <div>
               <button 
                 @click="startPractice()"
                 :disabled="selectedTextIndex === '' || !practiceMode"
@@ -1043,11 +1043,6 @@
         </div>
 
     </main>
-
-    <!-- Footer -->
-    <footer class="mt-12 text-center text-gray-500 text-sm">
-      <p>Enhanced Memory Palace Trainer - Your Personal Memorization Tool</p>
-    </footer>
 
     <!-- Note Preview Modal -->
     <div 
