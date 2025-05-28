@@ -133,25 +133,6 @@
     <main style="padding-bottom: 64px;">
       <!-- Modernized Setup Tab with Sub-tabs for UX Clarity -->
       <div x-show="activeTab === 'setup'" class="space-y-8">
-        <!-- Setup Sub-Tabs (Responsive)
-        <nav class="flex flex-wrap gap-2 border-b border-gray-200 pb-2 mt-2">
-          <template x-for="tab in [
-            { id: 'palaces', label: 'Memory Palaces' },
-            { id: 'characters', label: 'Characters' },
-            { id: 'repetition', label: 'Spaced Repetition' },
-            { id: 'importExport', label: 'Import / Export' }
-          ]" :key="tab.id">
-            <button
-              @click="setupSubTab = tab.id"
-              :class="setupSubTab === tab.id
-                ? 'bg-indigo-600 text-white'
-                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
-              class="tab-button flex-1 min-w-[48%] sm:min-w-max px-4 py-2 rounded-lg text-sm sm:text-base text-center"
-              x-text="tab.label"
-            ></button>
-          </template>
-        </nav> -->
-
         <!-- Setup Dashboard (Responsive) -->
         <div x-show="!setupSubTab" class="mt-4 px-4">
           <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -173,97 +154,163 @@
         </div>
 
 
-
-        <!-- Memory Palaces -->
-        <div x-show="setupSubTab === 'palaces'" class="space-y-6 px-4">
-          <div class="flex items-center">
+        <!-- Memory Palaces Splash/List View -->
+        <div x-show="setupSubTab === 'palaces' && !showPalaceForm" class="space-y-6 px-4 pb-20">
+          <div class="flex items-center mt-2">
             <button @click="setupSubTab = null" class="text-indigo-600 text-sm hover:underline">← Back</button>
           </div>
-          <!-- Memory Palaces Section -->
-              <section class="bg-white rounded-2xl shadow p-6 border border-gray-100">
-                <h2 class="text-2xl font-bold text-gray-800 mb-6">🏛 Memory Palaces</h2>
-                <div class="grid md:grid-cols-2 gap-6">
 
-                  <!-- Create New Palace -->
-                  <div class="space-y-4">
-                    <h3 class="text-lg font-semibold text-gray-700">Create New Palace</h3>
-                    <div class="space-y-2">
-                      <input x-model="newPalace.name" placeholder="Palace Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
-                      <textarea x-model="newPalace.description" rows="2" placeholder="Description" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none"></textarea>
-                      <div class="flex justify-end">
-                        <button @click="addPalace()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">Create Palace</button>
-                      </div>
+          <h2 class="text-2xl font-bold text-gray-800">🏛 Your Memory Palaces</h2>
+
+          <template x-if="palaces.length === 0">
+            <p class="text-gray-400 italic">No memory palaces created yet.</p>
+          </template>
+
+          <div class="space-y-4">
+
+            <template x-for="(palace, pIndex) in palaces" :key="pIndex">
+              <div 
+                class="relative rounded-2xl overflow-hidden shadow-md border border-gray-200 group"
+                x-data="{ 
+                  open: false, 
+                  scrollToContent() { 
+                    this.open = true; 
+                    $nextTick(() => this.$refs.accordion.scrollIntoView({ behavior: 'smooth', block: 'start' })); 
+                  } 
+                }"
+              >
+                <!-- Background gradient layer -->
+                <div class="h-48 bg-gradient-to-br" :class="gradientVariants[pIndex % gradientVariants.length]"></div>
+
+                <!-- Gradient overlay only -->
+                <div 
+                  x-show="!open"
+                  class="absolute inset-0 z-0 bg-gradient-to-t from-black/60 via-black/30 to-transparent pointer-events-none"
+                  x-transition
+                ></div>
+
+                <!-- Foreground content (always visible) -->
+                <div class="absolute inset-0 z-10 flex flex-col justify-between p-4 pointer-events-none">
+                  <div class="pointer-events-auto">
+                    <h3 class="text-white text-xl font-bold mb-1" x-text="palace.name"></h3>
+                    <p class="text-white text-sm opacity-80 italic" x-text="palace.description || 'No description yet.'"></p>
+                  </div>
+
+                  <div class="flex justify-between items-center mt-auto pointer-events-auto">
+                    <div class="flex gap-2">
+                      <button 
+                        @click="open ? open = false : scrollToContent()" 
+                        class="text-white text-xs bg-black/30 hover:bg-black/50 px-3 py-1 rounded-full"
+                      >
+                        <span x-text="open ? 'Hide Locations' : 'View Locations'"></span>
+                      </button>
+                      <button 
+                        @click="
+                            selectedPalaceIndex = pIndex; 
+                            showPalaceForm = true;
+                            $nextTick(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
+                          "
+                        class="text-white text-xs bg-green-600 hover:bg-green-700 px-3 py-1 rounded-full"
+                      >
+                        + Add Location
+                      </button>
                     </div>
-                  </div>
-
-                  <!-- Add Loci to Palace -->
-                  <div x-show="palaces.length > 0" class="space-y-4">
-                    <h3 class="text-lg font-semibold text-gray-700">Add Locations (Loci)</h3>
-                    <select x-model="selectedPalaceIndex" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
-                      <option value="">Choose a palace...</option>
-                      <template x-for="(palace, index) in palaces" :key="index">
-                        <option :value="index" x-text="palace.name"></option>
-                      </template>
-                    </select>
-
-                    <template x-if="selectedPalaceIndex !== ''">
-                      <div class="space-y-3">
-                        <input x-model="newLoci.name" placeholder="Location Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
-                        <input x-model="newLoci.image" placeholder="Image URL (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
-                        <input type="file" @change="handleLociImageUpload($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
-                        <button @click="addLoci()" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">Add Location</button>
-                      </div>
-                    </template>
+                    <button @click="deletePalace(pIndex)" class="text-white hover:text-red-400 text-sm">
+                      <i class="fas fa-trash"></i>
+                    </button>
                   </div>
                 </div>
 
-                <!-- Palaces List -->
-                <div class="mt-10">
-                  <h3 class="text-lg font-semibold text-gray-700 mb-4">Your Memory Palaces</h3>
-                  <template x-if="palaces.length === 0">
-                    <p class="text-gray-400 italic">No memory palaces created yet.</p>
-                  </template>
-
-                  <div class="space-y-4">
-                    <template x-for="(palace, pIndex) in palaces" :key="pIndex">
-                      <div class="border border-gray-200 rounded-lg p-4 shadow-sm">
-                        <div class="flex justify-between items-start mb-2">
-                          <div>
-                            <h4 class="text-lg font-semibold text-gray-800" x-text="palace.name"></h4>
-                            <p class="text-sm text-gray-500 italic" x-text="palace.description || 'No description' "></p>
-                          </div>
-                          <button @click="deletePalace(pIndex)" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
-                        </div>
-
-                        <template x-if="palace.loci.length > 0">
-                          <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
-                            <template x-for="(loci, lIndex) in palace.loci" :key="lIndex">
-                              <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex gap-3 items-center">
-                                <img :src="loci.image || '/images/locations/default.jpg'" alt="" class="w-14 h-14 object-cover rounded" />
-                                <div class="flex-1">
-                                  <div class="flex justify-between items-center">
-                                    <span class="font-medium text-gray-700" x-text="loci.name"></span>
-                                    <button @click="editLoci(pIndex, lIndex)" class="text-blue-400 hover:text-blue-600 text-xs ml-2"><i class="fas fa-edit"></i></button>
-                                    <button @click="deleteLoci(pIndex, lIndex)" class="text-red-400 hover:text-red-600 text-sm"><i class="fas fa-times"></i></button>
-                                  </div>
-                                  <template x-if="loci.image">
-                                    <a :href="loci.image" target="_blank" class="text-xs text-blue-500">View Image</a>
-                                  </template>
-                                </div>
+                <!-- Accordion -->
+                <div x-show="open" x-transition x-ref="accordion" class="bg-white px-4 pb-14 pt-2">
+                  <template x-if="palace.loci.length > 0">
+                    <div class="grid sm:grid-cols-2 gap-3 mt-3">
+                      <template x-for="(loci, lIndex) in palace.loci" :key="lIndex">
+                        <div class="flex items-center gap-3 p-3 rounded-lg border border-gray-200 bg-gray-50">
+                          <img :src="loci.image || '/images/locations/default.jpg'" class="w-12 h-12 object-cover rounded-lg" />
+                          <div class="flex-1">
+                            <div class="flex justify-between items-center">
+                              <span class="font-medium text-gray-800 text-sm" x-text="loci.name"></span>
+                              <div class="flex gap-2 text-xs">
+                                <button @click="editLoci(pIndex, lIndex)" class="text-blue-500 hover:underline"><i class="fas fa-edit"></i></button>
+                                <button @click="deleteLoci(pIndex, lIndex)" class="text-red-500 hover:underline"><i class="fas fa-trash"></i></button>
                               </div>
-                            </template>
-
+                            </div>
                           </div>
-                          <template x-if="palace.loci.length === 0">
-                            <p class="text-sm text-gray-400 italic">No locations added yet.</p>
-                          </template>
-                        </template>
-                      </div>
-                    </template>
-                  </div>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="palace.loci.length === 0">
+                    <p class="text-sm text-gray-400 italic mt-3">No locations added yet.</p>
+                  </template>
                 </div>
-              </section>
+              </div>
+            </template>
+
+
+          </div>
+          
+
+          <!-- Floating Action Button -->
+          <button 
+            @click="
+              showPalaceForm = true;
+              selectedPalaceIndex = null;
+              newPalace = { name: '', description: '' };
+            "
+            class="fixed bottom-20 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 sm:hidden z-50"
+          >
+            <i class="fas fa-plus text-xl"></i>
+          </button>
+
         </div>
+
+        <!-- Step 1: Create Palace -->
+          <div x-show="showPalaceForm && selectedPalaceIndex === null" class="px-4 space-y-6 pb-20">
+            <div class="flex items-center mt-4">
+              <button @click="showPalaceForm = false" class="text-indigo-600 text-sm hover:underline">← Cancel</button>
+            </div>
+
+            <h2 class="text-xl font-bold text-gray-800">➕ Create New Palace</h2>
+
+            <div class="space-y-3">
+              <input x-model="newPalace.name" placeholder="Palace Name" class="w-full px-4 py-2 border rounded-lg" />
+              <textarea x-model="newPalace.description" rows="2" placeholder="Description" class="w-full px-4 py-2 border rounded-lg"></textarea>
+            </div>
+
+            <button 
+              @click="addPalace(); selectedPalaceIndex = palaces.length - 1" 
+              class="bg-green-600 text-white px-4 py-2 rounded-lg w-full"
+            >
+              ➡️ Next: Add Locations
+            </button>
+          </div>
+          <!-- Step 2: Add Loci to Palace -->
+          <div x-show="showPalaceForm && selectedPalaceIndex !== null" class="px-4 space-y-6 pb-20">
+            <div class="flex items-center mt-4">
+              <button @click="selectedPalaceIndex = null; showPalaceForm = false" class="text-indigo-600 text-sm hover:underline">← Done</button>
+            </div>
+
+            <h2 class="text-xl font-bold text-gray-800">📍 Add Locations to <span x-text="palaces[selectedPalaceIndex]?.name"></span></h2>
+
+            <div class="space-y-3">
+              <input x-model="newLoci.name" placeholder="Location Name" class="w-full px-4 py-2 border rounded-lg" />
+              <input x-model="newLoci.image" placeholder="Image URL (optional)" class="w-full px-4 py-2 border rounded-lg" />
+              <input type="file" @change="handleLociImageUpload($event)" class="block w-full text-sm text-gray-500 mt-1" />
+              <button @click="addLoci()" class="bg-indigo-600 text-white px-4 py-2 rounded-lg w-full">Add Location</button>
+            </div>
+
+            <div class="space-y-2">
+              <template x-for="(loci, index) in palaces[selectedPalaceIndex]?.loci" :key="index">
+                <div class="p-3 bg-gray-50 border rounded-lg flex justify-between items-center">
+                  <span x-text="loci.name" class="text-gray-800 text-sm"></span>
+                  <button @click="deleteLoci(selectedPalaceIndex, index)" class="text-red-500 text-sm"><i class="fas fa-trash"></i></button>
+                </div>
+              </template>
+            </div>
+          </div>
+        
 
         <!-- Characters -->
         <div x-show="setupSubTab === 'characters'" class="space-y-6">
@@ -1154,7 +1201,7 @@
       </div>
 
       <!-- Scrollable Form Content -->
-      <div class="overflow-y-auto px-4 py-6 pb-26 space-y-6 flex-1">
+      <div class="overflow-y-auto px-4 pt-6 pb-20 space-y-6 flex-1">
         <!-- Add New Text Form -->
         <div class="bg-white p-6 rounded-2xl shadow border border-gray-100 space-y-5">
           <h2 class="text-2xl font-semibold text-gray-800">📝 Add New Text</h2>
@@ -1496,7 +1543,8 @@
             // UI state
             activeTab: 'texts',
             setupSubTab: null,
-            selectedPalaceIndex: '',
+            selectedPalaceIndex: null,
+            showPalaceForm: false,
             editingTextIndex: -1,
             
             // Practice mode
@@ -1530,6 +1578,7 @@
             showNoteEditor: false,
             isPracticeActive: false,
             showStats: false,
+
             exitPractice() {
               this.currentPracticeItem = null;
               this.practiceItems = [];
@@ -1539,7 +1588,10 @@
               this.showAnswer = false;
               this.currentPracticeIndex = 0;
             },
-            
+
+            showPalaceForm: false,
+            selectedPalaceIndex: null,
+            newPalace: { name: '', description: '' },
 
 
             repetitionPresets: [
@@ -1555,10 +1607,19 @@
               'bg-gradient-to-br from-yellow-400 to-orange-500',
               'bg-gradient-to-br from-blue-500 to-cyan-500'
             ],
+            gradientVariants: [
+              'from-indigo-500 to-purple-500',
+              'from-pink-500 to-red-400',
+              'from-green-400 to-emerald-600',
+              'from-yellow-400 to-orange-500',
+              'from-sky-400 to-blue-600',
+              'from-rose-400 to-fuchsia-500',
+            ],
+
             practiceModes: [
               { value: 'memoryCard', label: 'Memory Cards', icon: '🃏' },
               { value: 'lineRecall', label: 'Line Recall', icon: '🔁' },
-              { value: 'fillBlanks', label: 'Fill in the Blanks', icon: '✍️' },
+              { value: 'fillBlanks', label: 'Fill in', icon: '✍️' },
               { value: 'storyRecall', label: 'Story Recall', icon: '📖' },
               { value: 'sequencing', label: 'Sequencing', icon: '🔢' },
               { value: 'characterLocation', label: 'Char & Loci', icon: '🎭' }
