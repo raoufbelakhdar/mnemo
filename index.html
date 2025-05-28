@@ -65,7 +65,12 @@
       .backface-hidden {
         backface-visibility: hidden;
       }
-
+      [dir="rtl"] {
+        text-align: right;
+      }
+      [dir="ltr"] {
+        text-align: left;
+      }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
@@ -503,8 +508,8 @@
 
                 <!-- Body -->
                 <div class="p-4 flex-1 flex flex-col justify-between">
-                  <h3 class="text-base font-semibold text-gray-900 mb-1 truncate" x-text="text.title"></h3>
-                  <p class="text-sm text-gray-500 truncate" x-text="text.content.substring(0, 100) + (text.content.length > 100 ? '...' : '')"></p>
+                  <h3 :dir="isArabic(text.title) ? 'rtl' : 'ltr'" class="text-base font-semibold text-gray-900 mb-1 truncate" x-text="text.title"></h3>
+                  <p :dir="isArabic(text.content) ? 'rtl' : 'ltr'" class="text-sm text-gray-500 truncate" x-text="text.content.substring(0, 100) + (text.content.length > 100 ? '...' : '')"></p>
                 </div>
               </div>
             </template>
@@ -713,16 +718,19 @@
                           <!-- Line -->
                           <div>
                             <h4 class="text-xl font-semibold text-indigo-700 mb-2">📝 Memorized Line</h4>
-                            <p class="text-base leading-relaxed text-gray-800 whitespace-pre-line" x-text="currentPracticeItem.text"></p>
+                            <p :dir="isArabic(currentPracticeItem.text) ? 'rtl' : 'ltr'" class="text-base leading-relaxed text-gray-800 whitespace-pre-line" x-text="currentPracticeItem.text"></p>
+
                           </div>
 
                           <!-- Substitution / Mnemonic -->
                           <div>
                             <h4 class="text-xl font-semibold text-indigo-700 mb-2">🎨 Mnemonic Image</h4>
                             <p 
+                              :dir="isArabic(currentPracticeItem.substitution) ? 'rtl' : 'ltr'" 
                               class="text-base leading-relaxed text-gray-700 whitespace-pre-line" 
                               x-text="currentPracticeItem.substitution || 'No substitution provided.'"
                             ></p>
+
                           </div>
 
                           <!-- Optional: Action footer or tip -->
@@ -1120,7 +1128,7 @@
             </template>
           </div>
 
-          <!-- Redesigned Review Modal -->
+          <!-- Review Modal -->
           <div 
             x-show="currentRepetitionNote"
             @keydown.escape.window="currentRepetitionNote = null"
@@ -1142,13 +1150,22 @@
               </button>
 
               <!-- Title -->
-              <h3 class="text-xl font-bold text-gray-800 mb-3" x-text="currentRepetitionNote.title"></h3>
+              <h3 
+                x-ref="noteTitle"
+                x-effect="$refs.noteTitle.setAttribute('dir', isArabic(currentRepetitionNote?.title) ? 'rtl' : 'ltr')"
+                class="text-xl font-bold text-gray-800 mb-3"
+                x-text="currentRepetitionNote.title"
+              ></h3>
 
               <!-- Line Content -->
               <div class="space-y-2 max-h-64 overflow-y-auto mb-4 pr-1">
                 <template x-for="line in currentRepetitionNote.lines" :key="line.text">
-                  <p class="bg-gray-100 p-3 rounded-md text-sm text-gray-700 border border-gray-200" x-text="line.text"></p>
-                </template>
+                    <p
+                      x-init="$el.setAttribute('dir', isArabic(line.text) ? 'rtl' : 'ltr')"
+                      class="bg-gray-100 p-3 rounded-md text-sm text-gray-700 border border-gray-200"
+                      x-text="line.text"
+                    ></p>
+                  </template>
               </div>
 
               <!-- Action Buttons -->
@@ -1184,7 +1201,12 @@
       <div class="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 space-y-6 relative" @click.away="showPreviewModal = false">
         <!-- Header -->
         <div class="flex justify-between items-start">
-          <h2 class="text-2xl font-semibold text-gray-800" x-text="previewNote?.title"></h2>
+          <h2
+            x-ref="noteTitle"
+            x-effect="$refs.noteTitle.setAttribute('dir', isArabic(previewNote?.title) ? 'rtl' : 'ltr')"
+            class="text-2xl font-semibold text-gray-800"
+            x-text="previewNote?.title"
+          ></h2>
           <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
         </div>
 
@@ -1198,7 +1220,7 @@
         <div class="max-h-72 overflow-y-auto border-t border-b py-4 space-y-3">
           <template x-for="line in previewNote?.lines" :key="line.text">
             <div class="text-gray-800 text-sm bg-gray-50 rounded px-3 py-2 shadow-sm">
-              <p x-text="line.text"></p>
+              <p :dir="isArabic(line.text) ? 'rtl' : 'ltr'" x-text="line.text"></p>
             </div>
           </template>
         </div>
@@ -1518,6 +1540,7 @@
           <img :src="enlargedImage" class="max-h-[90vh] max-w-[90vw] rounded shadow-lg">
         </div>
     </div>
+
     <!-- Bottom Navigation (Mobile-First) -->
     <nav 
       x-show="!showPreviewModal && activeTab" 
@@ -1583,7 +1606,10 @@
                 }
 
             },
-            
+            isArabic(text) {
+              return /[\u0600-\u06FF]/.test(text || '');
+            },
+
             // UI state
             activeTab: 'texts',
             setupSubTab: null,
