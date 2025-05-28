@@ -434,7 +434,7 @@
       </div>
       
       <!-- Practice Tab -->
-        <div x-show="activeTab === 'practice'" class="px-6 max-w-2xl mx-auto">
+        <div x-show="activeTab === 'practice'" class="px-4 max-w-2xl mx-auto">
           <!-- Practice Home -->
           <div 
               x-show="!currentPracticeItem" 
@@ -915,21 +915,24 @@
 
         </div>
 
-        <div x-show="activeTab === 'repetition'" class="space-y-10 max-w-4xl mx-auto">
-          <h2 class="text-3xl font-bold text-indigo-800">📅 Repetition Schedule</h2>
+        <div x-show="activeTab === 'repetition'" class="space-y-8 max-w-xl mx-auto px-4">
+          <h2 class="text-2xl font-bold text-gray-800 mt-4">📅 Repetition Schedule</h2>
 
           <!-- DUE TODAY -->
-          <section>
-            <h3 class="text-xl font-semibold text-red-600 mb-4">🔴 Due Today or Overdue</h3>
+          <div>
+            <p class="text-sm font-semibold text-gray-500 mb-2">Due Today</p>
             <template x-if="scheduledTexts.length > 0">
-              <div class="grid gap-4">
+              <div class="space-y-4">
                 <template x-for="(text, index) in scheduledTexts" :key="index">
-                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-red-400">
-                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
-                    <p class="text-sm text-gray-500 mt-1">Due: <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
+                  <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500">
+                    <div class="flex justify-between items-center">
+                      <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
+                      <span class="text-xs text-gray-400">🔴 Due</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">⏰ <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
                     <div class="flex gap-2 mt-3">
-                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Review</button>
-                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Review</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
                     </div>
                   </div>
                 </template>
@@ -938,20 +941,23 @@
             <template x-if="scheduledTexts.length === 0">
               <p class="text-sm text-gray-400 italic">No notes due today.</p>
             </template>
-          </section>
+          </div>
 
           <!-- UPCOMING -->
-          <section>
-            <h3 class="text-xl font-semibold text-yellow-600 mb-4">🟡 Upcoming</h3>
+          <div>
+            <p class="text-sm font-semibold text-gray-500 mb-2">Upcoming</p>
             <template x-if="upcomingTexts.length > 0">
-              <div class="grid gap-4">
+              <div class="space-y-4">
                 <template x-for="(text, index) in upcomingTexts" :key="index">
-                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-yellow-400">
-                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
-                    <p class="text-sm text-gray-500 mt-1">Due: <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
+                  <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-400">
+                    <div class="flex justify-between items-center">
+                      <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
+                      <span class="text-xs text-gray-400">🟡 Upcoming</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1">📅 <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
                     <div class="flex gap-2 mt-3">
-                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Preview</button>
-                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Preview</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
                     </div>
                   </div>
                 </template>
@@ -960,20 +966,23 @@
             <template x-if="upcomingTexts.length === 0">
               <p class="text-sm text-gray-400 italic">No upcoming notes.</p>
             </template>
-          </section>
+          </div>
 
           <!-- UNSCHEDULED -->
-          <section>
-            <h3 class="text-xl font-semibold text-gray-700 mb-4">⚪ Not Scheduled</h3>
+          <div>
+            <p class="text-sm font-semibold text-gray-500 mb-2">Unscheduled</p>
             <template x-if="unscheduledTexts.length > 0">
-              <div class="grid gap-4">
+              <div class="space-y-4">
                 <template x-for="(text, index) in unscheduledTexts" :key="index">
-                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-gray-300">
-                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
-                    <p class="text-sm text-gray-500 italic">No review date set</p>
+                  <div class="bg-white p-4 rounded-xl shadow border-l-4 border-gray-300">
+                    <div class="flex justify-between items-center">
+                      <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
+                      <span class="text-xs text-gray-400">⚪ Not Set</span>
+                    </div>
+                    <p class="text-sm text-gray-500 mt-1 italic">No review date</p>
                     <div class="flex gap-2 mt-3">
-                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Preview</button>
-                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Preview</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
                     </div>
                   </div>
                 </template>
@@ -982,52 +991,58 @@
             <template x-if="unscheduledTexts.length === 0">
               <p class="text-sm text-gray-400 italic">All notes are scheduled.</p>
             </template>
-          </section>
+          </div>
 
-          <!-- Review Modal -->
+          <!-- Redesigned Review Modal -->
           <div 
             x-show="currentRepetitionNote"
             @keydown.escape.window="currentRepetitionNote = null"
-            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4"
+            style="margin-top: 0;"
           >
             <div 
               @click.away="currentRepetitionNote = null"
               x-transition
-              class="bg-white max-w-2xl w-full p-6 rounded-2xl shadow-xl border border-indigo-200 relative"
+              class="bg-white w-full max-w-md rounded-2xl shadow-xl p-6 relative border border-gray-200"
             >
+              <!-- Close Button -->
               <button 
                 @click="currentRepetitionNote = null"
                 class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold"
                 aria-label="Close"
               >
-                ×
+                &times;
               </button>
 
-              <h3 class="text-2xl font-bold text-indigo-700 mb-4" x-text="currentRepetitionNote.title"></h3>
+              <!-- Title -->
+              <h3 class="text-xl font-bold text-gray-800 mb-3" x-text="currentRepetitionNote.title"></h3>
 
-              <div class="space-y-2 max-h-96 overflow-y-auto mb-4 pr-1">
+              <!-- Line Content -->
+              <div class="space-y-2 max-h-64 overflow-y-auto mb-4 pr-1">
                 <template x-for="line in currentRepetitionNote.lines" :key="line.text">
-                  <p class="bg-indigo-50 p-3 rounded shadow-sm text-gray-800 border border-indigo-100" x-text="line.text"></p>
+                  <p class="bg-gray-100 p-3 rounded-md text-sm text-gray-700 border border-gray-200" x-text="line.text"></p>
                 </template>
               </div>
 
-              <div class="flex flex-col sm:flex-row gap-4">
+              <!-- Action Buttons -->
+              <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <button 
                   @click="repeatSameInterval(); currentRepetitionNote = null"
-                  class="bg-red-500 text-white px-4 py-2 rounded-full hover:bg-red-600 w-full sm:w-auto"
+                  class="bg-red-500 text-white text-sm px-4 py-2 rounded-full hover:bg-red-600 transition w-full"
                 >
-                  🔁 Repeat This Level
+                  🔁 Repeat Level
                 </button>
 
                 <button 
                   @click="advanceRepetition(); currentRepetitionNote = null"
-                  class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 w-full sm:w-auto"
+                  class="bg-green-600 text-white text-sm px-4 py-2 rounded-full hover:bg-green-700 transition w-full"
                 >
-                  ⏭️ Move to Next Interval
+                  ⏭️ Advance
                 </button>
               </div>
             </div>
           </div>
+
 
         </div>
 
@@ -1050,7 +1065,6 @@
         <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
           <p><strong>Palace:</strong> <span x-text="getPalaceName(previewNote?.palaceIndex) || 'None'"></span></p>
           <p><strong>Repetition:</strong> <span x-text="previewNote?.repetition?.presetName || 'None'"></span></p>
-          <p><strong>Characters:</strong> <span x-text="getNoteCharacters(previewNote) || 'None'"></span></p>
         </div>
 
         <!-- Lines -->
