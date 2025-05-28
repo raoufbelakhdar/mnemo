@@ -1,0 +1,2688 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧠 Enhanced Memory Palace Trainer</title>
+  
+  <!-- Tailwind CSS via CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Alpine.js for reactivity -->
+  <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  
+  <!-- PapaParse for CSV parsing -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.3.2/papaparse.min.js"></script>
+
+  <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+
+  <!-- Font Awesome for icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.1/css/all.min.css">
+  
+  <style>
+    [x-cloak] { display: none !important; }
+    
+    .fade-enter-active, .fade-leave-active {
+      transition: opacity 0.3s;
+    }
+    .fade-enter, .fade-leave-to {
+      opacity: 0;
+    }
+    
+    .blank-input {
+      border-bottom: 2px solid #4f46e5;
+      padding: 0 0.2em;
+      margin: 0 0.1em;
+      min-width: 1.5em;
+      display: inline-block;
+      text-align: center;
+      background-color: #f5f3ff;
+    }
+    
+    .sortable-ghost {
+      opacity: 0.5;
+      background: #c7d2fe;
+    }
+    
+    .tab-button {
+      @apply px-4 py-2 rounded-md transition-colors;
+    }
+    .tab-button.active {
+      @apply bg-indigo-600 text-white;
+    }
+    .tab-button.inactive {
+      @apply bg-gray-100 text-gray-700 hover:bg-gray-200;
+    }
+    .perspective {
+        perspective: 1000px;
+      }
+      .preserve-3d {
+        transform-style: preserve-3d;
+      }
+      .rotate-y-180 {
+        transform: rotateY(180deg);
+      }
+      .backface-hidden {
+        backface-visibility: hidden;
+      }
+
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen">
+  <div x-data="memoryApp()" @next-flashcard="nextPracticeItem()"  @previous-flashcard="previousPracticeItem()" x-cloak class="container mx-auto px-4 py-8">
+    <!-- Header -->
+    <header 
+        x-show="!showPreviewModal && (!isMobile || isPracticeActive)" 
+        x-transition 
+        class="bg-indigo-600 text-white p-4 rounded-lg shadow-md mb-6 sticky top-0 z-40"
+      >
+      <div class="flex items-center justify-between">
+        <!-- App title -->
+        <div class="flex items-center space-x-2">
+          <i class="fas fa-brain text-2xl"></i>
+          <h1 class="text-xl sm:text-2xl font-bold">Memory Trainer</h1>
+        </div>
+
+        <!-- Hamburger (mobile only) -->
+        <button 
+          @click="navOpen = !navOpen"
+          class="sm:hidden text-white text-2xl focus:outline-none"
+          aria-label="Toggle Navigation"
+        >
+          ☰
+        </button>
+
+        <!-- Desktop nav -->
+        <nav class="hidden sm:flex space-x-2">
+          <template x-for="tab in ['texts', 'practice', 'repetition', 'setup']" :key="tab">
+            <button 
+              @click="activeTab = tab"
+              :class="activeTab === tab ? 'bg-white text-indigo-600' : 'hover:bg-indigo-500'"
+              class="px-3 py-1 rounded capitalize"
+              :disabled="tab === 'practice' && memoryItems.length === 0"
+              :class="tab === 'practice' && memoryItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+              x-text="tab === 'repetition' ? 'Repetition ' : tab"
+            ></button>
+          </template>
+        </nav>
+      </div>
+
+      <!-- Mobile nav -->
+      <div 
+        x-show="navOpen" 
+        x-transition
+        class="sm:hidden mt-4 flex flex-col gap-2"
+      >
+        <template x-for="tab in ['texts', 'practice', 'repetition', 'setup']" :key="tab">
+          <button 
+            @click="activeTab = tab; navOpen = false"
+            :class="activeTab === tab ? 'bg-white text-indigo-600' : 'bg-indigo-500 hover:bg-indigo-400'"
+            class="w-full px-4 py-2 rounded text-left capitalize"
+            :disabled="tab === 'practice' && memoryItems.length === 0"
+            :class="tab === 'practice' && memoryItems.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+            x-text="tab === 'repetition' ? 'Repetition' : (tab === 'texts' ? 'Notes' : tab)"
+          ></button>
+        </template>
+      </div>
+    </header>
+
+    <!-- Main Content -->
+    <main>
+      <!-- Modernized Setup Tab with Sub-tabs for UX Clarity -->
+      <div x-show="activeTab === 'setup'" class="space-y-8">
+        <!-- Setup Sub-Tabs (Responsive) -->
+        <nav class="flex flex-wrap gap-2 border-b border-gray-200 pb-2 mt-2">
+          <template x-for="tab in [
+            { id: 'palaces', label: 'Memory Palaces' },
+            { id: 'characters', label: 'Characters' },
+            { id: 'repetition', label: 'Spaced Repetition' },
+            { id: 'importExport', label: 'Import / Export' }
+          ]" :key="tab.id">
+            <button
+              @click="setupSubTab = tab.id"
+              :class="setupSubTab === tab.id
+                ? 'bg-indigo-600 text-white'
+                : 'bg-gray-100 text-gray-700 hover:bg-gray-200'"
+              class="tab-button flex-1 min-w-[48%] sm:min-w-max px-4 py-2 rounded-lg text-sm sm:text-base text-center"
+              x-text="tab.label"
+            ></button>
+          </template>
+        </nav>
+
+
+        <!-- Memory Palaces -->
+        <div x-show="setupSubTab === 'palaces'" class="space-y-6">
+          <!-- Memory Palaces Section -->
+              <section class="bg-white rounded-2xl shadow p-6 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">🏛 Memory Palaces</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+
+                  <!-- Create New Palace -->
+                  <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-700">Create New Palace</h3>
+                    <div class="space-y-2">
+                      <input x-model="newPalace.name" placeholder="Palace Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none" />
+                      <textarea x-model="newPalace.description" rows="2" placeholder="Description" class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-400 focus:outline-none"></textarea>
+                      <div class="flex justify-end">
+                        <button @click="addPalace()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">Create Palace</button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Add Loci to Palace -->
+                  <div x-show="palaces.length > 0" class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-700">Add Locations (Loci)</h3>
+                    <select x-model="selectedPalaceIndex" class="w-full px-4 py-2 border border-gray-300 rounded-lg">
+                      <option value="">Choose a palace...</option>
+                      <template x-for="(palace, index) in palaces" :key="index">
+                        <option :value="index" x-text="palace.name"></option>
+                      </template>
+                    </select>
+
+                    <template x-if="selectedPalaceIndex !== ''">
+                      <div class="space-y-3">
+                        <input x-model="newLoci.name" placeholder="Location Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        <input x-model="newLoci.image" placeholder="Image URL (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                        <input type="file" @change="handleLociImageUpload($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                        <button @click="addLoci()" class="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg">Add Location</button>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- Palaces List -->
+                <div class="mt-10">
+                  <h3 class="text-lg font-semibold text-gray-700 mb-4">Your Memory Palaces</h3>
+                  <template x-if="palaces.length === 0">
+                    <p class="text-gray-400 italic">No memory palaces created yet.</p>
+                  </template>
+
+                  <div class="space-y-4">
+                    <template x-for="(palace, pIndex) in palaces" :key="pIndex">
+                      <div class="border border-gray-200 rounded-lg p-4 shadow-sm">
+                        <div class="flex justify-between items-start mb-2">
+                          <div>
+                            <h4 class="text-lg font-semibold text-gray-800" x-text="palace.name"></h4>
+                            <p class="text-sm text-gray-500 italic" x-text="palace.description || 'No description' "></p>
+                          </div>
+                          <button @click="deletePalace(pIndex)" class="text-red-500 hover:text-red-700"><i class="fas fa-trash"></i></button>
+                        </div>
+
+                        <template x-if="palace.loci.length > 0">
+                          <div class="grid sm:grid-cols-2 md:grid-cols-3 gap-4">
+                            <template x-for="(loci, lIndex) in palace.loci" :key="lIndex">
+                              <div class="bg-gray-50 rounded-lg p-3 border border-gray-200 flex gap-3 items-center">
+                                <img :src="loci.image || '/images/locations/default.jpg'" alt="" class="w-14 h-14 object-cover rounded" />
+                                <div class="flex-1">
+                                  <div class="flex justify-between items-center">
+                                    <span class="font-medium text-gray-700" x-text="loci.name"></span>
+                                    <button @click="editLoci(pIndex, lIndex)" class="text-blue-400 hover:text-blue-600 text-xs ml-2"><i class="fas fa-edit"></i></button>
+                                    <button @click="deleteLoci(pIndex, lIndex)" class="text-red-400 hover:text-red-600 text-sm"><i class="fas fa-times"></i></button>
+                                  </div>
+                                  <template x-if="loci.image">
+                                    <a :href="loci.image" target="_blank" class="text-xs text-blue-500">View Image</a>
+                                  </template>
+                                </div>
+                              </div>
+                            </template>
+
+                          </div>
+                          <template x-if="palace.loci.length === 0">
+                            <p class="text-sm text-gray-400 italic">No locations added yet.</p>
+                          </template>
+                        </template>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+              </section>
+        </div>
+
+        <!-- Characters -->
+        <div x-show="setupSubTab === 'characters'" class="space-y-6">
+          <!-- Characters Section -->
+              <section class="bg-white rounded-2xl shadow p-6 border border-gray-100">
+                <h2 class="text-2xl font-bold text-gray-800 mb-6">🎭 Characters</h2>
+                <div class="grid md:grid-cols-2 gap-6">
+                  <!-- Add New Character -->
+                  <div class="space-y-4">
+                    <h3 class="text-lg font-semibold text-gray-700">Add New Character</h3>
+                    <input x-model="newCharacter.name" placeholder="Character Name" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    <textarea x-model="newCharacter.description" rows="2" placeholder="Description" class="w-full px-4 py-2 border border-gray-300 rounded-lg"></textarea>
+                    <input x-model="newCharacter.image" placeholder="Image URL (optional)" class="w-full px-4 py-2 border border-gray-300 rounded-lg" />
+                    <input type="file" @change="handleCharacterImageUpload($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+                    <button @click="addCharacter()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg shadow">Add Character</button>
+                  </div>
+
+                  <!-- Characters List -->
+                  <div>
+                    <h3 class="text-lg font-semibold text-gray-700 mb-3">Your Characters</h3>
+                    <template x-if="characters.length === 0">
+                      <p class="text-gray-400 italic">No characters added yet.</p>
+                    </template>
+                      <div :key="characterListKey" id="character-list" class="grid sm:grid-cols-2 gap-3">
+                        <template x-for="(character, index) in characters" :key="index">
+                          <div class="drag-character bg-gray-50 p-3 rounded-lg flex gap-3 border border-gray-200">
+                            <img :src="character.image || '/images/characters/default.png'" class="w-14 h-14 object-cover rounded-full" />
+                            <div class="flex-1">
+                              <div class="flex justify-between items-center">
+                                <h4 class="text-sm font-semibold text-gray-800" x-text="character.name"></h4>
+                                <button @click="editCharacter(index)" class="text-blue-500 hover:text-blue-700 text-sm"><i class="fas fa-edit"></i></button>
+                                <button @click="deleteCharacter(index)" class="text-red-400 hover:text-red-600 text-sm"><i class="fas fa-trash"></i></button>
+                              </div>
+                              <p class="text-sm text-gray-500" x-text="character.description || 'No description'"></p>
+                              <template x-if="character.image">
+                                <a :href="character.image" target="_blank" class="text-xs text-blue-500">View Image</a>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                  </div>
+                </div>
+              </section>
+        </div>
+
+        <!-- Spaced Repetition Presets -->
+        <div x-show="setupSubTab === 'repetition'" class="bg-white rounded-2xl shadow p-6 border border-gray-100 space-y-6">
+          <h2 class="text-2xl font-bold text-gray-800">📐 Spaced Repetition Presets</h2>
+          <div class="flex flex-col md:flex-row gap-2">
+            <input x-model="newPreset.name" placeholder="Preset Name" class="border px-3 py-2 rounded w-full md:w-1/3" />
+            <input x-model="newPreset.intervalsRaw" placeholder="Intervals (e.g., 1,3,7)" class="border px-3 py-2 rounded w-full md:w-1/3" />
+            <button @click="addPreset()" class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700">Add Preset</button>
+          </div>
+          <div class="space-y-2">
+            <template x-for="(preset, index) in repetitionPresets" :key="index">
+              <div class="flex justify-between items-center bg-gray-50 p-3 rounded">
+                <div>
+                  <strong x-text="preset.name"></strong>
+                  <span class="text-sm text-gray-600 ml-2" x-text="preset.intervals.join(', ') + ' days'"></span>
+                </div>
+                <button @click="deletePreset(index)" class="text-red-500 hover:text-red-700 text-sm">Delete</button>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Import/Export -->
+        <div x-show="setupSubTab === 'importExport'" class="bg-white rounded-2xl shadow p-6 border border-gray-100 space-y-8">
+          <h2 class="text-2xl font-bold text-gray-800">📁 Import & Export</h2>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <!-- Import JSON & CSV -->
+            <!-- Import JSON & CSV -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-gray-700">Import Data</h3>
+              <label class="block text-sm font-medium text-gray-600">Import All Data (JSON)</label>
+              <input type="file" @change="importJSON($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+              <label class="block text-sm font-medium text-gray-600">Import Texts (CSV)</label>
+              <input type="file" @change="importCSV($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+              <label class="block text-sm font-medium text-gray-600">Import Palaces (CSV)</label>
+              <input type="file" @change="importPalacesCSV($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+              <label class="block text-sm font-medium text-gray-600">Import Characters (CSV)</label>
+              <input type="file" @change="importCharactersCSV($event)" class="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+
+              <label class="block text-sm font-medium text-gray-600">Or paste JSON:</label>
+              <textarea x-model="importJsonText" placeholder="Paste JSON here" class="w-full border rounded px-4 py-2 h-32"></textarea>
+              <button @click="importFromJsonText()" class="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">Import</button>
+            </div>
+
+            <!-- Export -->
+            <div class="space-y-4">
+              <h3 class="text-lg font-semibold text-gray-700">Export Data</h3>
+              <button @click="exportData()" class="w-full bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Export All as JSON</button>
+              <button @click="exportCSV()" class="w-full bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">Export Texts as CSV</button>
+              <button @click="exportPalacesCSV()" class="w-full bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">Export Palaces as CSV</button>
+              <button @click="exportCharactersCSV()" class="w-full bg-pink-500 text-white px-4 py-2 rounded hover:bg-pink-600">Export Characters as CSV</button>
+              <textarea x-model="exportJsonText" class="w-full border rounded-md px-3 py-2 text-sm" rows="5" readonly></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Texts Tab -->
+      <div x-show="activeTab === 'texts'" class="space-y-8">
+        
+        <!-- Saved Texts -->
+        <div class="bg-white p-6 rounded-2xl shadow border border-gray-100">
+          <h2 class="text-2xl font-semibold text-gray-800 mb-6">📚 Your Saved Texts</h2>
+
+          <div class="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+
+            <template x-for="(text, index) in texts" :key="index">
+              <div 
+                @click="previewText(text)" 
+                class="flex flex-col bg-white rounded-xl shadow-md hover:shadow-xl transition cursor-pointer overflow-hidden relative"
+              >
+                <!-- Book cover gradient -->
+                <div 
+                  class="h-40 flex items-center justify-center text-white text-xl font-semibold"
+                  :class="coverGradients[index % coverGradients.length]"
+                >
+                  <span x-text="text.title.substring(0, 1)"></span>
+                </div>
+
+                <!-- Repetition badge -->
+                <div class="absolute top-2 right-2 w-3 h-3 rounded-full" 
+                  :class="{
+                    'bg-red-500': getRepetitionStatus(text) === 'due',
+                    'bg-yellow-400': getRepetitionStatus(text) === 'upcoming',
+                    'bg-green-500': getRepetitionStatus(text) === 'done'
+                  }"
+                ></div>
+
+                <!-- Body -->
+                <div class="p-4 flex-1 flex flex-col justify-between">
+                  <h3 class="text-base font-semibold text-gray-900 mb-1 truncate" x-text="text.title"></h3>
+                  <p class="text-sm text-gray-500 truncate" x-text="text.content.substring(0, 100) + (text.content.length > 100 ? '...' : '')"></p>
+                  <!-- Delete button  -->
+                  <div class="flex justify-end mt-2">
+                      <button 
+                          @click.stop="deleteText(index)"
+                          class="text-red-500 hover:text-red-700 text-lg"
+                          title="Delete note"
+                        >
+                          <i class="fas fa-trash"></i>
+                      </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+
+
+            <template x-if="texts.length === 0">
+              <p class="text-gray-400 text-center col-span-full italic">No texts saved yet</p>
+            </template>
+          </div>
+        </div>
+        <!-- Add New Note Button (Responsive) -->
+        <div>
+          <button 
+            @click="
+              editingTextIndex = null;
+              newText = {
+                title: '',
+                content: '',
+                palaceIndex: '',
+                repetitionPreset: '',
+                lines: [],
+                repetition: null,
+                stats: { totalAttempts: 0, correctAnswers: 0 }
+              };
+              showNoteEditor = true;
+            "
+            class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 hidden sm:inline-block"
+          >
+            ➕ Add New Note
+          </button>
+
+          <!-- FAB for mobile -->
+          <button 
+            @click="
+              editingTextIndex = null;
+              newText = {
+                title: '',
+                content: '',
+                palaceIndex: '',
+                repetitionPreset: '',
+                lines: [],
+                repetition: null,
+                stats: { totalAttempts: 0, correctAnswers: 0 }
+              };
+              showNoteEditor = true;
+            "
+            class="fixed bottom-20 right-4 bg-indigo-600 text-white p-4 rounded-full shadow-lg hover:bg-indigo-700 sm:hidden z-50"
+          >
+            <i class="fas fa-plus text-xl"></i>
+          </button>
+        </div>        
+        
+      </div>
+      
+      <!-- Practice Tab -->
+        <div x-show="activeTab === 'practice'" class="bg-white p-6 rounded-lg shadow-md max-w-2xl mx-auto">
+          <!-- Practice Home -->
+          <div 
+              x-show="!currentPracticeItem" 
+              x-transition 
+              class="space-y-6"
+            >
+
+            <h2 class="text-2xl font-semibold text-gray-800">🧠 Practice</h2>
+
+            <!-- Note Picker -->
+            <div>
+                  <label class="block text-sm font-semibold text-indigo-700 mb-1">Select a Note</label>
+                  <select 
+                    x-model="selectedTextIndex" 
+                    class="w-full border border-indigo-200 rounded-lg px-4 py-2 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="-1">📚 Choose...</option>
+                    <template x-for="(text, index) in texts" :key="index">
+                      <option :value="index" x-text="text.title"></option>
+                    </template>
+                  </select>
+                  <template x-if="selectedTextIndex >= 0">
+                    <p class="text-xs text-gray-600 mt-3">
+                      <span x-text="texts[selectedTextIndex].lines.length"></span> lines,
+                      <span x-text="texts[selectedTextIndex].stats.totalAttempts"></span> attempts,
+                      <span x-text="texts[selectedTextIndex].stats.correctAnswers"></span> correct
+                    </p>
+                  </template>
+                  <template x-if="practiceMode === 'lineRecall'">
+                <div>
+                  <label class="block text-sm font-semibold text-indigo-700 mb-1">Line Recall Order</label>
+                  <select 
+                    x-model="recallOrder"
+                    class="w-full border border-indigo-200 rounded-lg px-4 py-2 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400"
+                  >
+                    <option value="normal">⏩ Normal</option>
+                    <option value="reverse">⏪ Reverse</option>
+                    <option value="random">🎲 Random</option>
+                  </select>
+                </div>
+              </template>
+            </div>
+
+            <!-- Mode Cards -->
+            <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
+              <template x-for="mode in practiceModes" :key="mode.value">
+                <button
+                  @click="practiceMode = mode.value"
+                  :class="{
+                    'bg-indigo-600 text-white': practiceMode === mode.value,
+                    'bg-white border text-gray-700': practiceMode !== mode.value
+                  }"
+                  class="rounded-xl p-4 shadow-md border transition-all text-center font-medium"
+                >
+                  <div class="text-xl mb-1" x-text="mode.icon"></div>
+                  <div x-text="mode.label"></div>
+                </button>
+              </template>
+            </div>
+
+            <!-- Start Button -->
+            <div class="pt-6">
+              <button 
+                @click="startPractice()"
+                :disabled="selectedTextIndex === '' || !practiceMode"
+                class="w-full bg-indigo-600 text-white py-3 rounded-lg shadow-lg hover:bg-indigo-700 disabled:opacity-40"
+              >
+                🚀 Start Practice
+              </button>
+            </div>
+
+          </div>
+          <!-- Progress Display -->
+          <div 
+              x-show="currentPracticeItem" 
+              x-transition 
+              class="space-y-4"
+            >
+              <!-- Back Button (Quiz Header) -->
+              <div class="flex justify-between items-center mb-4">
+                <button 
+                  @click="exitPractice()" 
+                  class="text-sm text-gray-600 hover:text-red-600"
+                >
+                  ← Back to Practice
+                </button>
+                <span class="text-sm text-gray-500" x-text="texts[selectedTextIndex]?.title"></span>
+              </div>
+
+                <template x-if="practiceMode === 'memoryCard' && currentPracticeItem">
+                  <div x-data="flashcardSwipe()"  x-init="init()"  class="relative w-full max-w-md mx-auto flex flex-col items-center justify-center">
+                    
+                    <!-- Flip Card Container -->
+                    <div 
+                      class="w-full h-[420px] perspective"
+                      @pointerdown="
+                        startX = $event.clientX;
+                        tapStart = Date.now();
+                        tapTarget = $event.target;
+                      "
+                      @pointerup="
+                        const dx = Math.abs($event.clientX - startX);
+                        const dt = Date.now() - tapStart;
+                        const isNoFlip = tapTarget?.closest('.no-flip') !== null;
+
+                        if (!isNoFlip && dx < 10 && dt < 300) {
+                          flipped = !flipped;
+                          showAnswer = true;
+                        }
+                        tapTarget = null;
+                      "
+                      >
+                      <div 
+                        x-ref="card"
+                        class="relative w-full h-full transition-transform duration-500 transform-style preserve-3d perspective select-none touch-none 
+                         rounded-3xl shadow-2xl border border-gray-200 bg-gradient-to-br from-white via-gray-50 to-gray-100"
+                        :class="{ 'rotate-y-180': flipped }"
+                        :style="`transform: translateX(${offsetX}px) rotate(${rotation}deg) ${flipped ? 'rotateY(180deg)' : ''}; transition: ${dragging ? 'none' : 'transform 0.3s ease'}`"
+                      >
+                        <!-- Front Side -->
+                        <div class="absolute inset-0 backface-hidden p-6 flex flex-col items-center text-center space-y-6">
+                          <!-- Character Image -->
+                          <img 
+                            :src="(characters.find(c => c.name === currentPracticeItem.character)?.image || '/images/characters/default.png')" 
+                            class="w-28 h-28 rounded-full border-4 border-indigo-400 shadow-md transition-transform duration-300"
+                          >
+
+                          <!-- Character Name -->
+                          <h3 class="text-2xl font-bold text-indigo-700 tracking-tight" x-text="currentPracticeItem.character || 'No character'"></h3>
+
+                          <!-- Location -->
+                          <div class="w-full">
+                            <div class="no-flip">
+                              <img 
+                                :src="getLociImage(currentPracticeItem.loci) || '/images/locations/default.jpg'" 
+                                class="w-full h-36 object-cover rounded-xl border shadow-sm cursor-pointer"
+                                @click="openLociImageModal(getLociImage(currentPracticeItem.loci))"
+                              >
+                            </div>
+                            <p class="text-sm text-gray-600 mt-2" x-text="currentPracticeItem.loci || 'No location'"></p>
+                          </div>
+
+                        </div>
+
+
+                        <!-- Back Side -->
+                        <div 
+                          class="absolute inset-0 backface-hidden rotate-y-180 p-6 flex flex-col space-y-6 bg-gradient-to-br from-indigo-50 to-white text-gray-800 rounded-3xl shadow-inner overflow-y-auto"
+                        >
+                          <!-- Line -->
+                          <div>
+                            <h4 class="text-xl font-semibold text-indigo-700 mb-2">📝 Memorized Line</h4>
+                            <p class="text-base leading-relaxed text-gray-800 whitespace-pre-line" x-text="currentPracticeItem.text"></p>
+                          </div>
+
+                          <!-- Substitution / Mnemonic -->
+                          <div>
+                            <h4 class="text-xl font-semibold text-indigo-700 mb-2">🎨 Mnemonic Image</h4>
+                            <p 
+                              class="text-base leading-relaxed text-gray-700 whitespace-pre-line" 
+                              x-text="currentPracticeItem.substitution || 'No substitution provided.'"
+                            ></p>
+                          </div>
+
+                          <!-- Optional: Action footer or tip -->
+                          <div class="mt-auto pt-4 border-t text-sm text-gray-500 italic">
+                            Tap or swipe to continue
+                          </div>
+                        </div>
+
+
+                      </div>
+                    </div>
+
+                    <!-- Next Button -->
+                    <button 
+                      x-show="flipped" 
+                      @click="nextPracticeItem(); flipped = false; showAnswer = false;" 
+                      class="mt-6 w-full bg-green-600 text-white py-2 px-4 rounded-full hover:bg-green-700 transition"
+                    >
+                      🔁 Next
+                    </button>
+                    
+                  </div>
+                </template>
+
+                 <!-- Line Recall Mode -->
+                <template x-if="practiceMode === 'lineRecall' && currentPracticeItem">
+                  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-lg space-y-6">
+                    <h3 class="text-2xl font-semibold text-indigo-700 text-center">🧠 Line Recall</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                        <p class="text-sm font-semibold text-indigo-500">Character</p>
+                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
+                      </div>
+                      <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                        <p class="text-sm font-semibold text-indigo-500">Location</p>
+                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.loci || 'None'"></p>
+                      </div>
+                    </div>
+
+                    <div class="pt-4">
+                      <label class="block text-sm font-medium text-gray-700 mb-2">✍️ Type the line from memory</label>
+                      <textarea 
+                        x-model="userResponse" 
+                        :disabled="showAnswer" 
+                        class="w-full p-4 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300"
+                        rows="3" 
+                        placeholder="Type the line here..."
+                      ></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-4 pt-4">
+                      <template x-if="!showAnswer">
+                        <button 
+                          @click="checkAnswer()" 
+                          class="bg-indigo-600 text-white px-5 py-2 rounded-full hover:bg-indigo-700 transition"
+                        >✅ Check Answer</button>
+                      </template>
+
+                      <template x-if="showAnswer">
+                        <button 
+                          @click="nextPracticeItem()" 
+                          class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                        >🔁 Next</button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                  <!-- Character-Location Match Mode -->
+                  <template x-if="practiceMode === 'characterLocation' && currentPracticeItem">
+                    <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-lg space-y-6">
+                      <h3 class="text-2xl font-semibold text-indigo-700 text-center">🧍‍♂️📍 Character & Location Match</h3>
+
+                      <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                        <p class="text-sm font-semibold text-indigo-500">Line</p>
+                        <p class="text-base text-gray-800 mt-1" x-text="currentPracticeItem.text"></p>
+                      </div>
+
+                      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">🙋 Who is the character?</label>
+                          <input 
+                            x-model="userResponseCharacter" 
+                            :disabled="showAnswer" 
+                            class="w-full border-2 border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-400" 
+                            placeholder="Type the character's name..."
+                          />
+                        </div>
+
+                        <div>
+                          <label class="block text-sm font-medium text-gray-700 mb-1">📍 What is the location?</label>
+                          <input 
+                            x-model="userResponseLocation" 
+                            :disabled="showAnswer" 
+                            class="w-full border-2 border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-400" 
+                            placeholder="Type the location..."
+                          />
+                        </div>
+                      </div>
+
+                      <div class="flex justify-end gap-4 pt-4">
+                        <template x-if="!showAnswer">
+                          <button 
+                            @click="checkAnswer()" 
+                            class="bg-indigo-600 text-white px-5 py-2 rounded-full hover:bg-indigo-700 transition"
+                          >✅ Check Answer</button>
+                        </template>
+
+                        <template x-if="showAnswer">
+                          <button 
+                            @click="nextPracticeItem()" 
+                            class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                          >🔁 Next</button>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+
+                <!-- Fill in the Blanks Mode -->
+                <template x-if="practiceMode === 'fillBlanks' && currentPracticeItem">
+                  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-lg space-y-6">
+                    <h3 class="text-2xl font-semibold text-indigo-700 text-center">📝 Fill in the Blanks</h3>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
+                      <div class="bg-indigo-50 p-4 rounded-lg">
+                        <p class="text-sm font-semibold text-indigo-500">Character</p>
+                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
+                      </div>
+                      <div class="bg-indigo-50 p-4 rounded-lg">
+                        <p class="text-sm font-semibold text-indigo-500">Location</p>
+                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.loci || 'None'"></p>
+                      </div>
+                    </div>
+
+                    <div class="p-4 bg-gray-50 border rounded-lg shadow-inner text-lg space-x-2 text-gray-800">
+                      <template x-for="(part, index) in blankedLineParts" :key="index">
+                        <span>
+                          <template x-if="part.type === 'text'">
+                            <span x-text="part.content + ' '"></span>
+                          </template>
+                          <template x-if="part.type === 'blank'">
+                            <input 
+                              x-model="blankAnswers[index]" 
+                              :disabled="showAnswer"
+                              class="inline-block w-24 px-2 py-1 border-b-2 border-indigo-300 text-center focus:outline-none focus:ring-2 focus:ring-indigo-400 rounded bg-white"
+                              placeholder="?"
+                            />
+                          </template>
+                        </span>
+                      </template>
+                    </div>
+
+                    <div class="flex justify-end gap-4 pt-4">
+                      <template x-if="!showAnswer">
+                        <button 
+                          @click="checkAnswer()" 
+                          class="bg-indigo-600 text-white px-5 py-2 rounded-full hover:bg-indigo-700 transition"
+                        >✅ Check Answer</button>
+                      </template>
+
+                      <template x-if="showAnswer">
+                        <button 
+                          @click="nextPracticeItem()" 
+                          class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                        >🔁 Next</button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Sequencing Mode -->
+                <template x-if="practiceMode === 'sequencing' && currentPracticeItem">
+                  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-lg space-y-6">
+                    <h3 class="text-2xl font-semibold text-indigo-700 text-center">🔢 Line Sequencing</h3>
+                    <p class="text-sm text-gray-600 text-center">Drag and drop the lines to arrange them in the correct order.</p>
+
+                    <div id="sortable" class="space-y-3">
+                      <template x-for="(line, index) in shuffledLines" :key="index">
+                        <div class="bg-indigo-50 border border-indigo-100 p-3 rounded-md shadow-sm cursor-move transition hover:shadow-md"
+                          draggable="true"
+                          @dragstart="dragStart(index)"
+                          @dragover.prevent="dragOver(index)"
+                          @drop="drop(index)"
+                          :class="{ 'ring-2 ring-indigo-400': draggedItem === index }">
+                          <span class="text-gray-800" x-text="line"></span>
+                        </div>
+                      </template>
+                    </div>
+
+                    <div class="flex justify-end gap-4 pt-4">
+                      <template x-if="!showAnswer">
+                        <button 
+                          @click="checkAnswer()" 
+                          class="bg-indigo-600 text-white px-5 py-2 rounded-full hover:bg-indigo-700 transition"
+                        >✅ Check Order</button>
+                      </template>
+
+                      <template x-if="showAnswer">
+                        <button 
+                          @click="nextPracticeItem()" 
+                          class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                        >🔁 Next</button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Story Recall Mode -->
+                <template x-if="practiceMode === 'storyRecall' && currentPracticeItem">
+                  <div class="bg-white border border-gray-200 rounded-xl p-6 shadow-lg space-y-6">
+                    <h3 class="text-2xl font-semibold text-indigo-700 text-center">📖 Story Recall</h3>
+
+                    <div x-show="!showAnswer" class="p-4 bg-indigo-50 border border-indigo-100 rounded-md shadow-inner text-center">
+                      <p class="text-gray-700 italic text-lg" x-text="currentPracticeItem.substitution || 'No mnemonic available'"></p>
+                    </div>
+
+                    <div class="pt-2">
+                      <label class="block text-sm font-medium text-gray-700 mb-2">✍️ Type the line from the story</label>
+                      <textarea 
+                        x-model="userResponse" 
+                        :disabled="showAnswer" 
+                        class="w-full p-4 border-2 border-indigo-200 rounded-lg focus:ring-2 focus:ring-indigo-300"
+                        rows="3" 
+                        placeholder="Reconstruct the line..."
+                      ></textarea>
+                    </div>
+
+                    <div class="flex justify-end gap-4 pt-4">
+                      <template x-if="!showAnswer">
+                        <button 
+                          @click="checkAnswer()" 
+                          class="bg-indigo-600 text-white px-5 py-2 rounded-full hover:bg-indigo-700 transition"
+                        >✅ Check Answer</button>
+                      </template>
+
+                      <template x-if="showAnswer">
+                        <button 
+                          @click="nextPracticeItem()" 
+                          class="bg-green-600 text-white px-5 py-2 rounded-full hover:bg-green-700 transition"
+                        >🔁 Next</button>
+                      </template>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Feedback -->
+                <template x-if="feedback">
+                  <div :class="feedback.isCorrect ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'" class="mt-4 p-3 rounded-md">
+                      <p class="font-medium" x-text="feedback.message"></p>
+                      <template x-if="showAnswer && !feedback.isCorrect">
+                      <div class="mt-2">
+                          <p class="font-semibold">Correct answer:</p>
+                          <template x-if="['lineRecall', 'storyRecall'].includes(practiceMode)">
+                          <p x-text="currentPracticeItem.text"></p>
+                          </template>
+                          <template x-if="practiceMode === 'characterLocation'">
+                          <p>Character: <span x-text="currentPracticeItem.character"></span></p>
+                          <p>Location: <span x-text="currentPracticeItem.loci"></span></p>
+                          </template>
+                          <template x-if="practiceMode === 'fillBlanks'">
+                          <p x-text="currentPracticeItem.text"></p>
+                          </template>
+                          <template x-if="practiceMode === 'sequencing'">
+                          <template x-for="(line, index) in correctSequence" :key="index">
+                              <p><span x-text="index + 1"></span>. <span x-text="line"></span></p>
+                          </template>
+                          </template>
+                      </div>
+                      </template>
+                  </div>
+                </template>
+
+                <!-- 📊 Practice Stats Toggle Button -->
+                <div class="flex justify-end mt-4">
+                  <button 
+                    @click="showStats = !showStats"
+                    class="text-sm text-indigo-600 hover:underline focus:outline-none"
+                  >
+                    <span x-show="!showStats">📈 Show Practice Stats</span>
+                    <span x-show="showStats">📉 Hide Practice Stats</span>
+                  </button>
+                </div>
+
+                <!-- 📊 Stats Panel -->
+                <template x-if="selectedTextIndex >= 0">
+                  <div x-show="showStats" x-transition class="bg-white shadow rounded-xl p-4 mt-2 space-y-4">
+                    <h2 class="text-lg font-bold text-gray-800">📊 Practice Stats</h2>
+
+                    <div class="text-sm text-gray-600">
+                      Total Attempts: <strong x-text="texts[selectedTextIndex].stats.totalAttempts"></strong><br>
+                      Total Correct: <strong x-text="texts[selectedTextIndex].stats.correctAnswers"></strong><br>
+                      Accuracy: 
+                      <strong x-text="(texts[selectedTextIndex].stats.correctAnswers / texts[selectedTextIndex].stats.totalAttempts * 100 || 0).toFixed(1) + '%'"></strong>
+                    </div>
+
+                    <template x-for="(data, mode) in texts[selectedTextIndex].stats.modeStats" :key="mode">
+                      <div class="border-t pt-3">
+                        <div class="flex justify-between items-center">
+                          <span class="capitalize font-semibold text-gray-700" x-text="mode.replace(/([A-Z])/g, ' $1')"></span>
+                          <span class="text-xs text-gray-500">
+                            <span x-text="data.correct + '/' + data.attempts"></span>
+                            (<span x-text="(data.correct / data.attempts * 100 || 0).toFixed(1) + '%'"></span>)
+                          </span>
+                        </div>
+                        <div class="w-full bg-gray-200 rounded-full h-2 mt-1">
+                          <div class="bg-blue-500 h-2 rounded-full"
+                              :style="`width: ${(data.correct / data.attempts * 100 || 0)}%`"></div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </template>
+
+                
+          </div>
+
+        </div>
+
+        <div x-show="activeTab === 'repetition'" class="space-y-10 max-w-4xl mx-auto">
+          <h2 class="text-3xl font-bold text-indigo-800">📅 Repetition Schedule</h2>
+
+          <!-- DUE TODAY -->
+          <section>
+            <h3 class="text-xl font-semibold text-red-600 mb-4">🔴 Due Today or Overdue</h3>
+            <template x-if="scheduledTexts.length > 0">
+              <div class="grid gap-4">
+                <template x-for="(text, index) in scheduledTexts" :key="index">
+                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-red-400">
+                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
+                    <p class="text-sm text-gray-500 mt-1">Due: <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
+                    <div class="flex gap-2 mt-3">
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Review</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="scheduledTexts.length === 0">
+              <p class="text-sm text-gray-400 italic">No notes due today.</p>
+            </template>
+          </section>
+
+          <!-- UPCOMING -->
+          <section>
+            <h3 class="text-xl font-semibold text-yellow-600 mb-4">🟡 Upcoming</h3>
+            <template x-if="upcomingTexts.length > 0">
+              <div class="grid gap-4">
+                <template x-for="(text, index) in upcomingTexts" :key="index">
+                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-yellow-400">
+                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
+                    <p class="text-sm text-gray-500 mt-1">Due: <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
+                    <div class="flex gap-2 mt-3">
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Preview</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="upcomingTexts.length === 0">
+              <p class="text-sm text-gray-400 italic">No upcoming notes.</p>
+            </template>
+          </section>
+
+          <!-- UNSCHEDULED -->
+          <section>
+            <h3 class="text-xl font-semibold text-gray-700 mb-4">⚪ Not Scheduled</h3>
+            <template x-if="unscheduledTexts.length > 0">
+              <div class="grid gap-4">
+                <template x-for="(text, index) in unscheduledTexts" :key="index">
+                  <div class="bg-white p-5 rounded-2xl shadow-md border-l-4 border-gray-300">
+                    <h4 class="text-lg font-bold text-gray-800" x-text="text.title"></h4>
+                    <p class="text-sm text-gray-500 italic">No review date set</p>
+                    <div class="flex gap-2 mt-3">
+                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white px-4 py-2 rounded-full hover:bg-indigo-700 transition">Preview</button>
+                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 transition">Practice </button>
+                    </div>
+                  </div>
+                </template>
+              </div>
+            </template>
+            <template x-if="unscheduledTexts.length === 0">
+              <p class="text-sm text-gray-400 italic">All notes are scheduled.</p>
+            </template>
+          </section>
+
+          <!-- Review Modal -->
+          <div 
+            x-show="currentRepetitionNote"
+            @keydown.escape.window="currentRepetitionNote = null"
+            class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+          >
+            <div 
+              @click.away="currentRepetitionNote = null"
+              x-transition
+              class="bg-white max-w-2xl w-full p-6 rounded-2xl shadow-xl border border-indigo-200 relative"
+            >
+              <button 
+                @click="currentRepetitionNote = null"
+                class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl font-bold"
+                aria-label="Close"
+              >
+                ×
+              </button>
+
+              <h3 class="text-2xl font-bold text-indigo-700 mb-4" x-text="currentRepetitionNote.title"></h3>
+
+              <div class="space-y-2 max-h-96 overflow-y-auto mb-4 pr-1">
+                <template x-for="line in currentRepetitionNote.lines" :key="line.text">
+                  <p class="bg-indigo-50 p-3 rounded shadow-sm text-gray-800 border border-indigo-100" x-text="line.text"></p>
+                </template>
+              </div>
+
+              <div class="flex flex-col sm:flex-row gap-4">
+                <button 
+                  @click="repeatSameInterval(); currentRepetitionNote = null"
+                  class="bg-red-500 text-white px-4 py-2 rounded-full hover:bg-red-600 w-full sm:w-auto"
+                >
+                  🔁 Repeat This Level
+                </button>
+
+                <button 
+                  @click="advanceRepetition(); currentRepetitionNote = null"
+                  class="bg-green-600 text-white px-4 py-2 rounded-full hover:bg-green-700 w-full sm:w-auto"
+                >
+                  ⏭️ Move to Next Interval
+                </button>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-12 text-center text-gray-500 text-sm">
+      <p>Enhanced Memory Palace Trainer - Your Personal Memorization Tool</p>
+    </footer>
+
+    <!-- Note Preview Modal -->
+    <div 
+      x-data
+      x-show="showPreviewModal" x-cloak x-transition
+      class="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 overflow-y-auto p-4"
+    >
+      <div class="bg-white w-full max-w-2xl rounded-2xl shadow-xl p-6 space-y-6 relative" @click.away="showPreviewModal = false">
+        <!-- Header -->
+        <div class="flex justify-between items-start">
+          <h2 class="text-2xl font-semibold text-gray-800" x-text="previewNote?.title"></h2>
+          <button @click="showPreviewModal = false" class="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
+        </div>
+
+        <!-- Meta Info -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm text-gray-600">
+          <p><strong>Palace:</strong> <span x-text="getPalaceName(previewNote?.palaceIndex) || 'None'"></span></p>
+          <p><strong>Repetition:</strong> <span x-text="previewNote?.repetition?.presetName || 'None'"></span></p>
+          <p><strong>Characters:</strong> <span x-text="getNoteCharacters(previewNote) || 'None'"></span></p>
+        </div>
+
+        <!-- Lines -->
+        <div class="max-h-72 overflow-y-auto border-t border-b py-4 space-y-3">
+          <template x-for="line in previewNote?.lines" :key="line.text">
+            <div class="text-gray-800 text-sm bg-gray-50 rounded px-3 py-2 shadow-sm">
+              <p x-text="line.text"></p>
+            </div>
+          </template>
+        </div>
+
+        <!-- Actions -->
+        <div class="flex justify-end gap-3 pt-2">
+          <button @click="goToPracticeWithNote(previewNote)" class="bg-indigo-600 text-white px-4 py-2 rounded-lg hover:bg-indigo-700">Practice </button>
+          <button @click="editTextById(previewNote)" class="bg-yellow-500 text-white px-4 py-2 rounded-lg hover:bg-yellow-600">Edit </button>
+          <button @click="showPreviewModal = false" class="bg-gray-400 text-white px-4 py-2 rounded-lg hover:bg-gray-500">Close</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Fullscreen Note Editor -->
+    <div 
+      x-show="showNoteEditor"
+      x-transition
+      class="fixed inset-0 bg-white z-50 flex flex-col overflow-hidden"
+    >
+      <!-- Top Bar -->
+      <div class="flex justify-between items-center px-4 py-3 border-b shadow">
+        <h2 class="text-lg font-semibold text-gray-800" x-text="editingTextIndex !== null ? 'Edit Note' : 'Add New Note'"></h2>
+        <button 
+          @click="showNoteEditor = false"
+          class="text-gray-600 hover:text-red-600 text-xl"
+        >
+          <i class="fas fa-times"></i>
+        </button>
+      </div>
+
+      <!-- Scrollable Form Content -->
+      <div class="overflow-y-auto px-4 py-6 space-y-6 flex-1">
+        <!-- Add New Text Form -->
+        <div class="bg-white p-6 rounded-2xl shadow border border-gray-100 space-y-5">
+          <h2 class="text-2xl font-semibold text-gray-800">📝 Add New Text</h2>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Text Title</label>
+              <input x-model="newText.title" type="text" class="w-full border rounded-md px-3 py-2">
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Text Content</label>
+              <textarea x-model="newText.content" class="w-full border rounded-md px-3 py-2" rows="6" placeholder="Paste your text here"></textarea>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Select Memory Palace</label>
+              <select x-model="newText.palaceIndex" class="w-full border rounded-md px-3 py-2">
+                <option value="">Choose a palace...</option>
+                <template x-for="(palace, index) in palaces" :key="index">
+                  <option :value="index" x-text="palace.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Repetition Preset</label>
+              <select x-model="newText.repetitionPreset" class="w-full border rounded-md px-3 py-2">
+                <option value="">No repetition</option>
+                <template x-for="preset in repetitionPresets" :key="preset.name">
+                  <option :value="preset.name" x-text="preset.name"></option>
+                </template>
+              </select>
+            </div>
+
+            <div class="flex justify-between">
+              <button 
+                @click="splitTextIntoLines()"
+                :disabled="!newText.content || newText.content.trim() === ''"
+                class="bg-indigo-600 text-white px-4 py-2 rounded hover:bg-indigo-700 disabled:opacity-50"
+              >
+                Split into Lines
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Lines Assignment -->
+        <div 
+          x-show="newText.lines.length > 0"
+          x-ref="lineAssignment"
+          class="bg-white p-6 rounded-lg shadow-md"
+        >
+          <h2 class="text-xl font-semibold mb-4">✏️ Assign Characters & Locations</h2>
+          
+          <!-- Responsive Lines Assignment -->
+        <template x-if="newText.lines.length > 0">
+          <div class="space-y-4">
+
+            <!-- 🖥 Desktop table: visible on sm+ screens -->
+            <div class="hidden sm:block overflow-x-auto">
+              <table class="min-w-full divide-y divide-gray-200">
+                <thead class="bg-gray-50">
+                  <tr>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Line</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Character</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Location</th>
+                    <th class="px-3 py-3 text-left text-xs font-medium text-gray-500 uppercase">Substitution</th>
+                  </tr>
+                </thead>
+                <tbody class="bg-white divide-y divide-gray-200">
+                  <template x-for="(line, index) in newText.lines" :key="index">
+                    <tr class="align-top">
+                      <td class="px-3 py-4 text-sm text-gray-900 max-w-xs" x-text="line.text"></td>
+                      <td class="px-3 py-4 text-sm">
+                        <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                          <option value="">Select character...</option>
+                          <template x-for="(character, cIndex) in characters" :key="cIndex">
+                            <option 
+                              :value="character.name" 
+                              x-text="character.name" 
+                              :selected="line.character === character.name"
+                            ></option>
+                          </template>
+                        </select>
+
+                      </td>
+                      <td class="px-3 py-4 text-sm">
+                        <select x-model="line.loci" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                          <option value="">Select location...</option>
+                          <template x-if="newText.palaceIndex !== ''">
+                            <template x-for="(loci, lIndex) in palaces[newText.palaceIndex].loci" :key="lIndex">
+                              <option 
+                                :value="loci.name" 
+                                x-text="loci.name" 
+                                :selected="line.loci === loci.name"
+                              ></option>
+                            </template>
+                          </template>
+                        </select>
+                      </td>
+                      <td class="px-3 py-4 text-sm space-y-2">
+                        <input x-model="line.substitution" type="text" class="border rounded px-2 py-1 w-full" placeholder="Mnemonic image">
+                        <button 
+                          @click="generatedPrompt = generateImagePrompt(line)"
+                          class="text-indigo-600 text-xs hover:underline mt-1 block"
+                        >
+                          📄 Generate AI Prompt
+                        </button>
+                      </td>
+                    </tr>
+                  </template>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- 📱 Mobile card view: visible below sm -->
+            <div class="sm:hidden space-y-4">
+              <template x-for="(line, index) in newText.lines" :key="index">
+                <div class="bg-white shadow rounded-lg border p-4 space-y-3">
+                  <div>
+                    <span class="text-xs font-semibold text-gray-500">Line</span>
+                    <p class="text-sm text-gray-800" x-text="line.text"></p>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold text-gray-500 block">Character</label>
+                    <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                      <option value="">Select character...</option>
+                      <template x-for="(character, cIndex) in characters" :key="cIndex">
+                        <option 
+                          :value="character.name" 
+                          x-text="character.name" 
+                          :selected="line.character === character.name"
+                        ></option>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold text-gray-500 block">Location</label>
+                    <select x-model="line.loci" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                      <option value="">Select location...</option>
+                      <template x-if="newText.palaceIndex !== ''">
+                        <template x-for="(loci, lIndex) in palaces[newText.palaceIndex].loci" :key="lIndex">
+                          <option 
+                            :value="loci.name" 
+                            x-text="loci.name" 
+                            :selected="line.loci === loci.name"
+                          ></option>
+                        </template>
+                      </template>
+                    </select>
+                  </div>
+                  <div>
+                    <label class="text-xs font-semibold text-gray-500 block">Substitution</label>
+                    <input x-model="line.substitution" type="text" class="border rounded px-2 py-1 w-full text-sm" placeholder="Mnemonic image">
+                    <button 
+                      @click="generatedPrompt = generateImagePrompt(line)"
+                      class="text-indigo-600 text-xs hover:underline mt-1 block"
+                    >
+                      📄 Generate AI Prompt
+                    </button>
+                  </div>
+                </div>
+              </template>
+            </div>
+
+            <template x-if="generatedPrompt">
+              <div class="fixed inset-0 bg-black/50 z-50 flex items-center justify-center px-4">
+                <div class="bg-white p-5 rounded-xl shadow-xl w-full max-w-lg relative">
+                  <button 
+                    @click="generatedPrompt = null"
+                    class="absolute top-3 right-3 text-gray-400 hover:text-gray-600 text-xl"
+                  >
+                    ×
+                  </button>
+
+                  <h3 class="text-lg font-semibold mb-2 text-indigo-700">📄 AI Substitution Image Prompt</h3>
+
+                  <textarea 
+                    class="w-full text-sm p-3 rounded border bg-gray-50 font-mono h-48 resize-none"
+                    readonly
+                    x-text="generatedPrompt"
+                  ></textarea>
+
+                  <div class="mt-3 text-right">
+                    <button 
+                      @click="navigator.clipboard.writeText(generatedPrompt)"
+                      class="bg-indigo-600 text-white px-4 py-1 rounded hover:bg-indigo-700 text-sm"
+                    >
+                      📋 Copy to Clipboard
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+            
+          </div>
+        </template>
+<!-- Save Button - Floating Bottom Right -->
+        <div 
+          x-show="newText.lines.length > 0"
+          x-transition
+          class="fixed bottom-20 right-4 sm:right-6 sm:bottom-6 z-50"
+        >
+          <button 
+            @click="saveText()"
+            class="bg-green-600 text-white px-6 py-3 rounded-full shadow-lg hover:bg-green-700 transition disabled:opacity-50"
+            :disabled="newText.lines.length === 0"
+          >
+            Save
+          </button>
+        </div>
+        </div>
+        
+      </div>
+    </div>
+
+
+    <!-- Character Edit Modal -->
+    <div 
+      x-show="editingCharacterIndex !== null" 
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" 
+      x-cloak
+    >
+      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md relative">
+        <button @click="cancelCharacterEdit()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl">×</button>
+        <h3 class="text-xl font-bold mb-4">Edit Character</h3>
+        <input x-model="editCharacterForm.name" placeholder="Name" class="w-full mb-2 border rounded px-3 py-2" />
+        <input x-model="editCharacterForm.description" placeholder="Description" class="w-full mb-2 border rounded px-3 py-2" />
+        <input x-model="editCharacterForm.image" placeholder="Image URL" class="w-full mb-4 border rounded px-3 py-2" />
+        <div class="flex justify-end gap-2">
+          <button @click="saveCharacterEdit()" class="bg-green-600 text-white px-4 py-2 rounded">Save</button>
+          <button @click="cancelCharacterEdit()" class="bg-gray-400 text-white px-4 py-2 rounded">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Loci Edit Modal -->
+    <div 
+      x-show="editingLociIndex !== null" 
+      class="fixed inset-0 bg-black/50 flex items-center justify-center z-50" 
+      x-cloak
+    >
+      <div class="bg-white p-6 rounded-lg shadow-xl w-full max-w-md relative">
+        <button @click="cancelLociEdit()" class="absolute top-2 right-2 text-gray-500 hover:text-gray-700 text-xl">×</button>
+        <h3 class="text-xl font-bold mb-4">Edit Location (Loci)</h3>
+        <input x-model="editLociForm.name" placeholder="Name" class="w-full mb-2 border rounded px-3 py-2" />
+        <input x-model="editLociForm.image" placeholder="Image URL" class="w-full mb-4 border rounded px-3 py-2" />
+        <div class="flex justify-end gap-2">
+          <button @click="saveLociEdit()" class="bg-green-600 text-white px-4 py-2 rounded">Save</button>
+          <button @click="cancelLociEdit()" class="bg-gray-400 text-white px-4 py-2 rounded">Cancel</button>
+        </div>
+      </div>
+    </div>
+
+    <!--card Loci image Modal -->
+    <div 
+        x-show="enlargedImage" 
+        class="fixed inset-0 bg-black/70 flex items-center justify-center z-50"
+      >
+        <div class="relative">
+          <button 
+            @click="enlargedImage = null" 
+            class="absolute top-2 right-2 bg-white rounded-full p-1 shadow"
+          >
+            <svg class="h-5 w-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+          <img :src="enlargedImage" class="max-h-[90vh] max-w-[90vw] rounded shadow-lg">
+        </div>
+    </div>
+    <!-- Bottom Navigation (Mobile-First) -->
+    <nav 
+      x-show="!showPreviewModal && activeTab" 
+      x-transition 
+      class="fixed bottom-0 left-0 right-0 z-50 bg-white border-t shadow-md flex justify-around sm:hidden"
+    >
+      <template x-for="tab in [
+        { id: 'texts', icon: 'book', label: 'Notes' },
+        { id: 'practice', icon: 'bolt', label: 'Practice' },
+        { id: 'repetition', icon: 'redo', label: 'Review' },
+        { id: 'setup', icon: 'cogs', label: 'Setup' }
+      ]" :key="tab.id">
+        <button
+          @click="
+            activeTab = tab.id;
+            showNoteEditor = false;
+            showNewTextForm = false;
+            editingTextIndex = null;
+            showPreviewModal = false;
+            enlargedImage = null;
+          "
+          class="flex flex-col items-center flex-1 py-2 text-xs"
+          :class="activeTab === tab.id ? 'text-indigo-600 font-semibold' : 'text-gray-500 hover:text-indigo-500'"
+        >
+          <i :class="`fas fa-${tab.icon} text-lg`"></i>
+          <span class="mt-1" x-text="tab.label"></span>
+        </button>
+      </template>
+    </nav>
+      
+
+  </div>
+
+  <script>
+    function memoryApp() {
+        return {
+            // Data storage
+            palaces: [],
+            characters: [],
+            texts: [],
+            navOpen: false,
+            // New item templates
+            newPalace: { name: '', description: '' },
+            newLoci: { name: '', image: '' },
+            newCharacter: { name: '', description: '', image: '' },
+            newText: { 
+                title: '', 
+                content: '', 
+                palaceIndex: '', 
+                lines: [],
+                repetitionPreset: '',
+                stats: {
+                    totalAttempts: 0,
+                    correctAnswers: 0,
+                    modeStats: {
+                        lineRecall: { attempts: 0, correct: 0 },
+                        fillBlanks: { attempts: 0, correct: 0 },
+                        storyRecall: { attempts: 0, correct: 0 },
+                        sequencing: { attempts: 0, correct: 0 },
+                        characterLocation: { attempts: 0, correct: 0 },
+                        memoryCard: { attempts: 0, correct: 0 }
+                    }
+                }
+
+            },
+            
+            // UI state
+            activeTab: 'texts',
+            setupSubTab: 'palaces',
+            selectedPalaceIndex: '',
+            editingTextIndex: -1,
+            
+            // Practice mode
+            practiceMode: 'memoryCard',
+            recallOrder: 'normal',
+            currentPracticeItem: null,
+            practiceQueue: [],
+            practiceIndex: 0,
+            showAnswer: false,
+            userResponse: '',
+            userResponseCharacter: '',
+            userResponseLocation: '',
+            feedback: null,
+            selectedTextIndex: -1,
+            
+            // Line manipulation
+            blankedLineParts: [],
+            blankAnswers: [],
+            blankIndices: [],
+            shuffledLines: [],
+            correctSequence: [],
+            draggedItem: null,
+            scheduledTexts: [],
+            upcomingTexts: [],
+            unscheduledTexts: [],
+            currentRepetitionNote: null,
+            showPreviewModal: false,
+            previewNote: null,
+            showNewTextForm: false,
+            characterListKey: 0,
+            showNoteEditor: false,
+            isPracticeActive: false,
+            showStats: false,
+            exitPractice() {
+              this.currentPracticeItem = null;
+              this.practiceItems = [];
+              this.userAnswer = '';
+              this.feedbackMessage = '';
+              this.lastAnswerCorrect = null;
+              this.showAnswer = false;
+              this.currentPracticeIndex = 0;
+            },
+            
+
+
+            repetitionPresets: [
+                { name: 'Beginner Review', intervals: [1, 3, 7, 14] },
+                { name: 'Advanced', intervals: [3, 7, 14, 30, 60] }
+            ],
+            generatedPrompt: null,
+            isMobile: window.innerWidth < 640,
+            coverGradients: [
+              'bg-gradient-to-br from-indigo-500 to-purple-500',
+              'bg-gradient-to-br from-pink-500 to-red-500',
+              'bg-gradient-to-br from-green-500 to-teal-500',
+              'bg-gradient-to-br from-yellow-400 to-orange-500',
+              'bg-gradient-to-br from-blue-500 to-cyan-500'
+            ],
+            practiceModes: [
+              { value: 'memoryCard', label: 'Memory Cards', icon: '🃏' },
+              { value: 'lineRecall', label: 'Line Recall', icon: '🔁' },
+              { value: 'fillBlanks', label: 'Fill in the Blanks', icon: '✍️' },
+              { value: 'storyRecall', label: 'Story Recall', icon: '📖' },
+              { value: 'sequencing', label: 'Sequencing', icon: '🔢' },
+              { value: 'characterLocation', label: 'Char & Loci', icon: '🎭' }
+              
+            ],
+
+
+            getRepetitionStatus(text) {
+              const today = new Date().toISOString().split('T')[0];
+              const next = text.repetition?.nextReview;
+              if (!next) return 'none';
+              if (next <= today) return 'due';
+              return 'upcoming'; // Simplified, you can expand as needed
+            },
+
+            generateImagePrompt(line) {
+                return `Generate a vivid substitution image for memorizing a line of poetry using the PAO method.
+                        Use the following:\n` +
+                      ` Line of poetry: "${line.text}"\n` +
+                      ` Character (PAO): ${line.character || 'N/A'}\n` +
+                      ` Location (Loci): ${line.loci || 'N/A'}\n\n` +
+                      `Your task:\n` +
+                      `- Follow the poetic line’s sequence literally — turn each phrase into a visual action or transformation in order.\n` +
+                      `- The character must perform or witness these actions, as if part of the scene.\n` +
+                      `- Use the location as the background.\n` +
+                      `- Include a distinct, symbolic object tied to the meaning.\n` +
+                      `- Emphasize emotion and physicality (e.g., roaring, clashing, glowing).\n` +
+                      `- The answer must be in the language of the line of poetry.\n` +
+                      `The result must be written in no more than 2 lines.`;
+              },
+
+            previewText(text) {
+              this.previewNote = text;
+              this.showPreviewModal = true;
+            },
+
+            startRepetitionReviewFromText(text) {
+                this.currentRepetitionNote = text;
+            },
+            goToPracticeWithNote(text) {
+                const index = this.texts.findIndex(t => t.title === text.title);
+                if (index === -1) return;
+
+                this.selectedTextIndex = index;
+                this.activeTab = 'practice';
+                this.showPreviewModal = false;
+
+                // Optional: Auto-start practice mode
+                setTimeout(() => {
+                    this.startPractice();
+                }, 100); // Small delay to wait for DOM/tab to update
+            },
+
+
+            getLociImage(lociName) {
+                for (const palace of this.palaces) {
+                    const match = palace.loci.find(l => l.name === lociName);
+                    if (match) return match.image;
+                }
+                return '';
+            },
+            nextPracticeItem() {
+                this.practiceIndex++;
+                this.setCurrentPracticeItem();
+            },
+            resetPractice() {
+                this.practiceIndex = 0;
+                this.practiceQueue = [];
+                this.currentPracticeItem = null;
+                this.showAnswer = false;
+                this.feedback = null;
+                this.userResponse = '';
+                this.userResponseCharacter = '';
+                this.userResponseLocation = '';
+            },
+            // Initialize the app
+            init() {
+                this.loadFromLocalStorage();
+
+                // Load sample data if empty
+                if (this.palaces.length === 0 && this.characters.length === 0) {
+                    this.loadSampleData();
+                }
+
+                this.$watch('activeTab', (val) => {
+                    if (val === 'repetition') {
+                        this.loadRepetitionLists();
+                    }
+                });
+                this.texts.forEach(text => {
+                  if (!text.stats.modeStats) {
+                      text.stats.modeStats = {
+                          lineRecall: { attempts: 0, correct: 0 },
+                          fillBlanks: { attempts: 0, correct: 0 },
+                          storyRecall: { attempts: 0, correct: 0 },
+                          sequencing: { attempts: 0, correct: 0 },
+                          characterLocation: { attempts: 0, correct: 0 },
+                          memoryCard: { attempts: 0, correct: 0 }
+                      };
+                  }
+              });
+              this.$nextTick(() => {
+                Sortable.create(document.getElementById('character-list'), {
+                  animation: 150,
+                  onEnd: evt => {
+                    const movedItem = this.characters.splice(evt.oldIndex, 1)[0];
+                    this.characters.splice(evt.newIndex, 0, movedItem);
+                    this.saveToLocalStorage();
+                  }
+                });
+
+                this.palaces.forEach((palace, pIndex) => {
+                  const listId = 'loci-list-' + pIndex;
+                  const listEl = document.getElementById(listId);
+                  if (listEl) {
+                    Sortable.create(listEl, {
+                      animation: 150,
+                      onEnd: evt => {
+                        const movedItem = palace.loci.splice(evt.oldIndex, 1)[0];
+                        palace.loci.splice(evt.newIndex, 0, movedItem);
+                        this.saveToLocalStorage();
+                      }
+                    });
+                  }
+                });
+              });
+              this.characters.forEach(character => {
+                if (!character.id) {
+                  character.id = crypto.randomUUID();
+                }
+              });
+              
+              this.isMobile = window.innerWidth < 640;
+                window.addEventListener('resize', () => {
+                  this.isMobile = window.innerWidth < 640;
+              });
+              
+            },
+
+            getPalaceName(index) {
+              const idx = parseInt(index);
+              return this.palaces[idx]?.name || '';
+            },
+
+            getNoteCharacters(note) {
+                const chars = note.lines
+                    .map(line => line.character)
+                    .filter(c => !!c)
+                    .filter((v, i, a) => a.indexOf(v) === i);
+                return chars.join(', ');
+            },
+
+            editTextById(note) {
+              const index = this.texts.findIndex(t => t.title === note.title);
+              if (index !== -1) {
+                this.editingTextIndex = index;
+                this.newText = JSON.parse(JSON.stringify(this.texts[index]));
+                this.showNoteEditor = true;
+                this.showPreviewModal = false;
+              }
+            },
+
+
+            // Sample data for first-time users
+            loadSampleData() {
+                this.palaces = [
+                    {
+                        name: 'My House',
+                        description: 'The house I grew up in',
+                        loci: [
+                            { name: 'Front Door', image: '' },
+                            { name: 'Living Room', image: '' },
+                            { name: 'Kitchen', image: '' },
+                            { name: 'Bedroom', image: '' }
+                        ]
+                    }
+                ];
+                
+                this.characters = [
+                    { name: 'Einstein', description: 'Famous physicist', image: '' },
+                    { name: 'Shakespeare', description: 'Renowned playwright', image: '' },
+                    { name: 'Napoleon', description: 'French military leader', image: '' }
+                ];
+                
+                this.saveToLocalStorage();
+            },
+           
+            splitTextIntoLines() {
+                if (this.newText.content.trim() === '') return;
+
+                const lines = this.newText.content.split('\n')
+                    .map(line => line.trim())
+                    .filter(line => line.length > 0);
+
+                this.newText.lines = lines.map((text, index) => {
+                    const availableChars = this.characters.length > 0 ? this.characters : [];
+                    const charIndex = availableChars.length > 0 ? index % availableChars.length : -1;
+                    const character = charIndex >= 0 ? availableChars[charIndex].name : '';
+
+                    let loci = '';
+                    if (this.newText.palaceIndex !== '' && 
+                        this.palaces[this.newText.palaceIndex] && 
+                        this.palaces[this.newText.palaceIndex].loci.length > 0) {
+                        const palaceLoci = this.palaces[this.newText.palaceIndex].loci;
+                        const lociIndex = index % palaceLoci.length;
+                        loci = palaceLoci[lociIndex].name;
+                    }
+
+                    return {
+                        text,
+                        character,
+                        loci,
+                        substitution: ''
+                    };
+                });
+
+                // ✅ Smooth scroll to assignment section
+                this.$nextTick(() => {
+                  const el = this.$refs.lineAssignment;
+                  if (el) {
+                    el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                  }
+                });
+              },
+            
+            saveText() {
+                if (this.newText.title.trim() === '' || this.newText.lines.length === 0) return;
+
+                // Create a clean copy of newText without any Alpine reactivity
+                const textToSave = JSON.parse(JSON.stringify({
+                    title: this.newText.title,
+                    content: this.newText.content,
+                    palaceIndex: this.newText.palaceIndex,
+                    lines: this.newText.lines,
+                    repetitionPreset: this.newText.repetitionPreset,
+                    stats: {
+                        totalAttempts: 0,
+                        correctAnswers: 0,
+                        modeStats: {
+                            lineRecall: { attempts: 0, correct: 0 },
+                            fillBlanks: { attempts: 0, correct: 0 },
+                            storyRecall: { attempts: 0, correct: 0 },
+                            sequencing: { attempts: 0, correct: 0 },
+                            characterLocation: { attempts: 0, correct: 0 },
+                            memoryCard: { attempts: 0, correct: 0 }
+                        }
+                    }
+                }));
+
+                // Handle repetition scheduling
+                if (this.newText.repetitionPreset) {
+                    const preset = this.repetitionPresets.find(p => p.name === this.newText.repetitionPreset);
+                    if (preset) {
+                        textToSave.repetition = {
+                            presetName: this.newText.repetitionPreset,
+                            currentIndex: 0,
+                            lastReviewed: null,
+                            nextReview: this.addDays(new Date().toISOString().split('T')[0], preset.intervals[0]),
+                            active: true
+                        };
+                    }
+                }
+
+                if (this.editingTextIndex !== null && this.editingTextIndex >= 0) {
+                    // Editing existing text - preserve stats from original
+                    if (this.texts[this.editingTextIndex]?.stats) {
+                        textToSave.stats = this.texts[this.editingTextIndex].stats;
+                    }
+                    this.texts[this.editingTextIndex] = textToSave;
+                } else {
+                    // Adding new text
+                    this.texts.push(textToSave);
+                }
+
+                this.resetTextForm();
+                this.saveToLocalStorage();
+                this.loadRepetitionLists();
+                this.showNoteEditor = false;
+                this.activeTab = 'texts';
+            },
+
+            editText(index) {
+              this.editingTextIndex = index;
+              this.newText = JSON.parse(JSON.stringify(this.texts[index]));
+              this.showNewTextForm = true;
+            },
+            
+            deleteText(index) {
+                if (confirm('Are you sure you want to delete this text?')) {
+                    this.texts.splice(index, 1);
+                    this.prepareMemoryItems();
+                    this.saveToLocalStorage();
+                }
+            },
+            
+            resetTextForm() {
+              this.newText = { 
+                  title: '', 
+                  content: '', 
+                  palaceIndex: '', 
+                  lines: [],
+                  repetitionPreset: '',
+                  stats: {
+                      totalAttempts: 0,
+                      correctAnswers: 0,
+                      modeStats: {
+                          lineRecall: { attempts: 0, correct: 0 },
+                          fillBlanks: { attempts: 0, correct: 0 },
+                          storyRecall: { attempts: 0, correct: 0 },
+                          sequencing: { attempts: 0, correct: 0 },
+                          characterLocation: { attempts: 0, correct: 0 },
+                          memoryCard: { attempts: 0, correct: 0 }
+                      }
+                  }
+              };
+              this.editingTextIndex = null;
+              this.showNewTextForm = false;
+          },
+            
+            prepareMemoryItems() {
+                this.memoryItems = [];
+                this.texts.forEach(text => {
+                    text.lines.forEach(line => {
+                    this.memoryItems.push({
+                        text: line.text,
+                        character: line.character,
+                        loci: line.loci,
+                        substitution: line.substitution,
+                        palaceIndex: text.palaceIndex
+                    });
+                    });
+                });
+            },
+
+            previousPracticeItem() {
+              if (this.practiceIndex === 0) {
+                return; // 🧠 Stop here — don't proceed!
+              }
+
+              this.practiceIndex--;
+              this.setCurrentPracticeItem();
+              this.userAnswer = '';
+              this.showAnswer = false;
+              this.feedback = null;
+
+            },
+
+
+
+            formatDate(dateStr) {
+                if (!dateStr) return '';
+                return new Date(dateStr).toLocaleDateString();
+            },
+
+            loadRepetitionLists() {
+                const today = new Date().toISOString().split('T')[0];
+
+                this.scheduledTexts = [];
+                this.upcomingTexts = [];
+                this.unscheduledTexts = [];
+
+                this.texts.forEach(text => {
+                    const rep = text.repetition;
+                    if (rep && rep.active) {
+                        if (!rep.nextReview) {
+                            this.unscheduledTexts.push(text);
+                        } else if (rep.nextReview <= today) {
+                            this.scheduledTexts.push(text);
+                        } else {
+                            this.upcomingTexts.push(text);
+                        }
+                    }
+                });
+            },
+
+            startRepetitionReview(index) {
+              this.currentRepetitionNote = this.dueTexts[index];
+            },
+
+            repeatSameInterval() {
+              if (!this.currentRepetitionNote) return;
+
+              const today = new Date().toISOString().split('T')[0];
+              const intervalDays = this.getCurrentIntervalDays(this.currentRepetitionNote);
+
+              const nextDate = this.addDays(today, intervalDays);
+              this.currentRepetitionNote.repetition.lastReviewed = today;
+              this.currentRepetitionNote.repetition.nextReview = nextDate;
+
+              this.currentRepetitionNote = null;
+              this.saveToLocalStorage();
+              this.loadDueTexts();
+            },
+
+            advanceRepetition() {
+              if (!this.currentRepetitionNote) return;
+
+              const rep = this.currentRepetitionNote.repetition;
+              const preset = this.repetitionPresets.find(p => p.name === rep.presetName);
+              if (!preset) return;
+
+              rep.currentIndex = Math.min(rep.currentIndex + 1, preset.intervals.length - 1);
+
+              const today = new Date().toISOString().split('T')[0];
+              const nextDate = this.addDays(today, preset.intervals[rep.currentIndex]);
+
+              rep.lastReviewed = today;
+              rep.nextReview = nextDate;
+
+              this.currentRepetitionNote = null;
+              this.saveToLocalStorage();
+              this.loadDueTexts();
+            },
+
+            getCurrentIntervalDays(note) {
+              const preset = this.repetitionPresets.find(p => p.name === note.repetition.presetName);
+              if (!preset) return 1;
+              return preset.intervals[note.repetition.currentIndex] || 1;
+            },
+
+            addDays(base, numDays) {
+            const date = new Date(base);
+            date.setDate(date.getDate() + numDays);
+            return date.toISOString().split('T')[0];
+            },
+
+            // Practice mode improvements
+            startPractice() {
+                if (this.selectedTextIndex < 0 || this.selectedTextIndex >= this.texts.length) return;
+                
+                const selectedText = this.texts[this.selectedTextIndex];
+                let items = selectedText.lines.map(line => ({
+                    ...line,
+                    textTitle: selectedText.title
+                }));
+                
+                if (this.practiceMode === 'lineRecall') {
+                    if (this.recallOrder === 'reverse') {
+                        items.reverse();
+                    } else if (this.recallOrder === 'random') {
+                        items.sort(() => Math.random() - 0.5);
+                    }
+                } else if (this.practiceMode !== 'memoryCard') {
+                    // For other modes, randomize the order
+                    items.sort(() => Math.random() - 0.5);
+                }
+                
+                this.practiceQueue = items;
+                this.practiceIndex = 0;
+                this.setCurrentPracticeItem();
+            },
+            
+            setCurrentPracticeItem() {
+                if (this.practiceIndex >= this.practiceQueue.length) {
+                    this.currentPracticeItem = null;
+                    return;
+                }
+                
+                this.currentPracticeItem = this.practiceQueue[this.practiceIndex];
+                this.showAnswer = false;
+                this.userResponse = '';
+                this.userResponseCharacter = '';
+                this.userResponseLocation = '';
+                this.feedback = null;
+                this.blankAnswers = [];
+                this.draggedItem = null;
+                this.dragOverItem = null;
+
+                if (this.practiceMode === 'fillBlanks') {
+                    this.prepareBlankedLine();
+                } else if (this.practiceMode === 'sequencing') {
+                    this.prepareSequencing();
+                }
+            },
+            
+            prepareSequencing() {
+                const line = this.currentPracticeItem.text;
+                this.correctSequence = line.split(' ');
+                this.shuffledLines = [...this.correctSequence];
+
+                // Shuffle the array
+                for (let i = this.shuffledLines.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [this.shuffledLines[i], this.shuffledLines[j]] = [this.shuffledLines[j], this.shuffledLines[i]];
+                }
+            },
+
+            dragStart(index) {
+                this.draggedItem = index;
+            },
+
+            dragOver(index) {
+                this.dragOverItem = index;
+            },
+
+            drop(index) {
+                if (this.draggedItem === null || index === this.draggedItem) return;
+
+                const item = this.shuffledLines[this.draggedItem];
+                this.shuffledLines.splice(this.draggedItem, 1);
+                this.shuffledLines.splice(index, 0, item);
+                
+                this.draggedItem = null;
+                this.dragOverItem = null;
+            },
+
+            prepareBlankedLine() {
+                const words = this.currentPracticeItem.text.split(' ');
+                this.blankedLineParts = [];
+                this.blankAnswers = [];
+                this.blankIndices = [];
+
+                words.forEach((word, index) => {
+                    if (index % 4 === 0) {
+                        this.blankedLineParts.push({ type: 'blank', content: word });
+                        this.blankAnswers.push('');
+                        this.blankIndices.push(this.blankedLineParts.length - 1);
+                    } else {
+                        this.blankedLineParts.push({ type: 'text', content: word });
+                    }
+                });
+            },
+
+            checkAnswer() {
+              if (!this.currentPracticeItem) return;
+
+              let isCorrect = false;
+              let feedbackMessage = '';
+              const mode = this.practiceMode;
+
+              // Find the current text
+              const textIndex = this.texts.findIndex(
+                  t => t.title === this.currentPracticeItem.textTitle
+              );
+
+              if (textIndex >= 0) {
+                  const stats = this.texts[textIndex].stats;
+
+                  // Initialize modeStats safely
+                  if (!stats.modeStats) stats.modeStats = {};
+                  if (!stats.modeStats[mode]) stats.modeStats[mode] = { attempts: 0, correct: 0 };
+
+                  // Always log an attempt
+                  stats.totalAttempts++;
+                  stats.modeStats[mode].attempts++;
+
+                  // Check answer
+                  switch (mode) {
+                      case 'lineRecall':
+                      case 'storyRecall':
+                          isCorrect = this.userResponse.trim().toLowerCase() === this.currentPracticeItem.text.trim().toLowerCase();
+                          feedbackMessage = isCorrect
+                              ? 'Correct! Well done!'
+                              : 'Not quite. Review the correct line.';
+                          break;
+
+                      case 'characterLocation':
+                          const correctChar = this.currentPracticeItem.character?.toLowerCase() || '';
+                          const correctLoc = this.currentPracticeItem.loci?.toLowerCase() || '';
+                          const userChar = this.userResponseCharacter.trim().toLowerCase();
+                          const userLoc = this.userResponseLocation.trim().toLowerCase();
+                          isCorrect = userChar === correctChar && userLoc === correctLoc;
+                          feedbackMessage = isCorrect
+                              ? 'Perfect! Both character and location are correct!'
+                              : userChar === correctChar
+                                  ? 'Character is correct, but location is wrong.'
+                                  : userLoc === correctLoc
+                                      ? 'Location is correct, but character is wrong.'
+                                      : 'Both character and location are incorrect.';
+                          break;
+
+                      case 'fillBlanks':
+                          let allCorrect = true;
+                          this.blankIndices.forEach((blankIndex, i) => {
+                              const correctWord = this.blankedLineParts[blankIndex].content.toLowerCase();
+                              const userAnswer = this.blankAnswers[i]?.toLowerCase() || '';
+                              if (userAnswer !== correctWord) allCorrect = false;
+                          });
+                          isCorrect = allCorrect;
+                          feedbackMessage = isCorrect
+                              ? 'Perfect! You got all the blanks right!'
+                              : 'Not all blanks are correct. Review the correct line.';
+                          break;
+
+                      case 'sequencing':
+                          isCorrect = JSON.stringify(this.shuffledLines) === JSON.stringify(this.correctSequence);
+                          feedbackMessage = isCorrect
+                              ? 'Perfect sequence! Well done!'
+                              : 'Not quite the right order. Try again!';
+                          break;
+
+                      default: // memoryCard or fallback
+                          isCorrect = true;
+                          feedbackMessage = 'Review complete.';
+                  }
+
+                  // Update correct stats if correct
+                  if (isCorrect) {
+                      stats.correctAnswers++;
+                      stats.modeStats[mode].correct++;
+                  }
+              }
+
+              // Show feedback
+              this.feedback = { isCorrect, message: feedbackMessage };
+              this.showAnswer = true;
+              this.saveToLocalStorage();
+          },
+
+            // Palace management
+            addPalace() {
+            if (this.newPalace.name.trim() === '') return;
+            
+            this.palaces.push({
+                name: this.newPalace.name,
+                description: this.newPalace.description,
+                loci: []
+            });
+            
+            this.newPalace = { name: '', description: '' };
+            this.saveToLocalStorage();
+            },
+            
+            deletePalace(index) {
+            if (confirm('Are you sure you want to delete this palace and all its locations?')) {
+                this.palaces.splice(index, 1);
+                this.saveToLocalStorage();
+            }
+            },
+            
+            // Loci management
+            addLoci() {
+            if (this.selectedPalaceIndex === '' || this.newLoci.name.trim() === '') return;
+            
+            this.palaces[this.selectedPalaceIndex].loci.push({
+                name: this.newLoci.name,
+                image: this.newLoci.image
+            });
+            
+            this.newLoci = { name: '', image: '' };
+            this.saveToLocalStorage();
+            },
+            
+            deleteLoci(palaceIndex, lociIndex) {
+            if (confirm('Are you sure you want to delete this location?')) {
+                this.palaces[palaceIndex].loci.splice(lociIndex, 1);
+                this.saveToLocalStorage();
+            }
+            },
+            
+            handleLociImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.newLoci.image = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            },
+            
+            editingLociIndex: null,
+            editingLociPalaceIndex: null,
+            editLociForm: { name: '', image: '' },
+
+            editLoci(pIndex, lIndex) {
+              this.editingLociPalaceIndex = pIndex;
+              this.editingLociIndex = lIndex;
+              this.editLociForm = { ...this.palaces[pIndex].loci[lIndex] };
+            },
+
+            saveLociEdit() {
+              if (this.editingLociIndex !== null && this.editingLociPalaceIndex !== null) {
+                this.palaces[this.editingLociPalaceIndex].loci[this.editingLociIndex] = { ...this.editLociForm };
+                this.editingLociIndex = null;
+                this.editingLociPalaceIndex = null;
+                this.saveToLocalStorage();
+              }
+            },
+
+            cancelLociEdit() {
+              this.editingLociIndex = null;
+              this.editingLociPalaceIndex = null;
+            },
+
+            // Character management
+            addCharacter() {
+              this.characters.push({
+                id: crypto.randomUUID(),
+                name: this.newCharacter.name,
+                description: this.newCharacter.description,
+                image: this.newCharacter.image
+              });
+              this.newCharacter = { name: '', description: '', image: '' };
+              this.saveToLocalStorage();
+            },
+
+            
+            deleteCharacter(index) {
+            if (confirm('Are you sure you want to delete this character?')) {
+                this.characters.splice(index, 1);
+                this.saveToLocalStorage();
+            }
+            },
+            
+            handleCharacterImageUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                this.newCharacter.image = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            },
+            
+            getCharacterImage(characterName) {
+            if (!characterName) return '';
+            const character = this.characters.find(c => c.name === characterName);
+            return character ? character.image : '';
+            },
+            
+            getLociImage(lociName) {
+            if (!lociName) return '';
+            for (const palace of this.palaces) {
+                const loci = palace.loci.find(l => l.name === lociName);
+                if (loci) return loci.image;
+            }
+            return '';
+            },
+            
+            newPreset: {
+                name: '',
+                intervalsRaw: ''
+            },
+
+            addPreset() {
+                  const name = this.newPreset.name.trim();
+                  const raw = this.newPreset.intervalsRaw.trim();
+
+                  if (!name || !raw) return alert('Please enter a name and intervals.');
+
+                  const intervals = raw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+
+                  if (intervals.length === 0) return alert('Please enter valid positive numbers.');
+
+                  this.repetitionPresets.push({ name, intervals });
+                  this.newPreset = { name: '', intervalsRaw: '' };
+                  this.saveToLocalStorage();
+                  },
+
+            deletePreset(index) {
+                  if (confirm('Delete this preset?')) {
+                      this.repetitionPresets.splice(index, 1);
+                      this.saveToLocalStorage();
+                  }
+            },
+
+            editingCharacterIndex: null,
+            editCharacterForm: { name: '', description: '', image: '' },
+
+            editCharacter(index) {
+              this.editingCharacterIndex = index;
+              this.editCharacterForm = { ...this.characters[index] };
+            },
+
+            saveCharacterEdit() {
+              if (this.editingCharacterIndex !== null) {
+                this.characters[this.editingCharacterIndex] = { ...this.editCharacterForm };
+                this.editingCharacterIndex = null;
+                this.saveToLocalStorage();
+              }
+            },
+
+            cancelCharacterEdit() {
+              this.editingCharacterIndex = null;
+            },
+
+
+            // Import/Export
+            importJSON(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                const data = JSON.parse(e.target.result);
+                this.importData(data);
+                } catch (error) {
+                alert('Error parsing JSON file: ' + error.message);
+                }
+            };
+            reader.readAsText(file);
+            },
+            
+            importFromJsonText() {
+            if (!this.importJsonText) return;
+            
+            try {
+                const data = JSON.parse(this.importJsonText);
+                this.importData(data);
+                this.importJsonText = '';
+            } catch (error) {
+                alert('Error parsing JSON: ' + error.message);
+            }
+            },
+            
+            importData(data) {
+              if (data.palaces) this.palaces = data.palaces;
+              if (data.characters) this.characters = data.characters;
+              if (data.texts) this.texts = data.texts;
+              if (data.stats) this.stats = data.stats;
+              
+              this.prepareMemoryItems();
+              this.saveToLocalStorage();
+              alert('Data imported successfully!');
+            },
+            
+            importCSV(event) {
+                const file = event.target.files[0];
+                if (!file) return;
+
+                Papa.parse(file, {
+                    header: true,
+                    skipEmptyLines: true,
+                    complete: (results) => {
+                        const linesByTitle = {};
+
+                        results.data.forEach(row => {
+                            const title = row.title || 'Untitled';
+                            if (!linesByTitle[title]) linesByTitle[title] = [];
+
+                            linesByTitle[title].push({
+                                text: row.text,
+                                character: row.character || '',
+                                loci: row.location || '',
+                                substitution: row.substitution || ''
+                            });
+                        });
+
+                        Object.entries(linesByTitle).forEach(([title, lines]) => {
+                            this.texts.push({
+                                title,
+                                content: lines.map(l => l.text).join('\n'),
+                                palaceIndex: '', // You could try to match palace name in the future
+                                lines,
+                                stats: { totalAttempts: 0, correctAnswers: 0 }
+                            });
+                        });
+
+                        this.prepareMemoryItems();
+                        this.saveToLocalStorage();
+                        alert('CSV imported successfully!');
+                    }
+                });
+            },
+
+            importPalacesCSV(event) {
+              const file = event.target.files[0];
+              if (!file) return;
+
+              Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+
+                  const grouped = {};
+
+                  results.data.forEach(row => {
+                    const palaceName = row.palaceName?.trim();
+                    const lociName = row.lociName?.trim();
+
+                    if (!palaceName) return;
+
+                    if (!grouped[palaceName]) {
+                      grouped[palaceName] = {
+                        name: palaceName,
+                        description: row.palaceDescription || '',
+                        loci: []
+                      };
+                    }
+
+                    // Add loci only if name exists
+                    if (lociName) {
+                      grouped[palaceName].loci.push({
+                        name: lociName,
+                        image: row.lociImage || ''
+                      });
+                    }
+                  });
+
+                  const newPalaces = Object.values(grouped);
+
+                  if (newPalaces.length > 0) {
+                    this.palaces = newPalaces;
+                    this.saveToLocalStorage();
+                    alert('Palaces imported successfully!');
+                  } else {
+                    alert('No valid palaces found in the CSV.');
+                  }
+                }
+              });
+            },
+
+            importCharactersCSV(event) {
+              const file = event.target.files[0];
+              if (!file) return;
+
+              Papa.parse(file, {
+                header: true,
+                skipEmptyLines: true,
+                complete: (results) => {
+                  this.characters = results.data
+                    .filter(row => row.name?.trim())
+                    .map(row => ({
+                      name: row.name.trim(),
+                      description: row.description || '',
+                      image: row.image || ''
+                    }));
+                  
+                  this.saveToLocalStorage();
+                  alert('Characters imported successfully!');
+                }
+              });
+            },
+
+            exportData() {
+              // Create a deep copy to avoid modifying original data
+              const cleanPalaces = this.palaces.map(palace => ({
+                  ...palace,
+                  loci: palace.loci.map(loci => ({
+                      ...loci,
+                      image: loci.image?.startsWith('data:') ? '' : loci.image
+                  }))
+              }));
+
+              const cleanCharacters = this.characters.map(char => ({
+                  ...char,
+                  image: char.image?.startsWith('data:') ? '' : char.image
+              }));
+
+              const cleanTexts = this.texts.map(text => ({
+                  ...text,
+                  lines: text.lines.map(line => ({ ...line })),
+                  stats: text.stats || { totalAttempts: 0, correctAnswers: 0 }
+              }));
+
+              const data = {
+                  palaces: cleanPalaces,
+                  characters: cleanCharacters,
+                  texts: cleanTexts,
+                  stats: this.stats
+              };
+
+              this.exportJsonText = JSON.stringify(data, null, 2);
+
+              const blob = new Blob([this.exportJsonText], { type: 'application/json' });
+              const url = URL.createObjectURL(blob);
+
+              const link = document.createElement('a');
+              link.href = url;
+              link.download = 'memory-palace-data.json';
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+          },
+
+            exportCSV() {
+                if (this.texts.length === 0) {
+                    alert("No texts to export.");
+                    return;
+                }
+
+                const rows = [];
+
+                this.texts.forEach(text => {
+                    text.lines.forEach((line, index) => {
+                        rows.push({
+                            title: text.title,
+                            lineNumber: index + 1,
+                            text: line.text,
+                            character: line.character || '',
+                            location: line.loci || '',
+                            substitution: line.substitution || ''
+                        });
+                    });
+                });
+
+                const csv = Papa.unparse(rows);
+
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "memory-palace-texts.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+
+            exportPalacesCSV() {
+                const rows = [];
+
+                this.palaces.forEach(palace => {
+                    palace.loci.forEach(loci => {
+                        rows.push({
+                            palaceName: palace.name,
+                            palaceDescription: palace.description,
+                            lociName: loci.name,
+                            lociImage: loci.image?.startsWith('data:') ? '' : loci.image
+                        });
+                    });
+
+                    // If palace has no loci
+                    if (palace.loci.length === 0) {
+                        rows.push({
+                            palaceName: palace.name,
+                            palaceDescription: palace.description,
+                            lociName: '',
+                            lociImage: ''
+                        });
+                    }
+                });
+
+                const csv = Papa.unparse(rows);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "memory-palaces.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+
+            exportCharactersCSV() {
+                const rows = this.characters.map(char => ({
+                    name: char.name,
+                    description: char.description,
+                    image: char.image?.startsWith('data:') ? '' : char.image
+                }));
+
+                const csv = Papa.unparse(rows);
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+
+                const link = document.createElement("a");
+                link.href = url;
+                link.download = "characters.csv";
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            },
+
+            // Local storage
+            saveToLocalStorage() {
+                const data = {
+                    palaces: this.palaces,
+                    characters: this.characters,
+                    texts: this.texts,
+                    stats: this.stats,
+                    repetitionPresets: this.repetitionPresets  // ✅ ADD THIS
+                };
+                localStorage.setItem('memoryPalaceData', JSON.stringify(data));
+            },
+
+            loadFromLocalStorage() {
+                const savedData = localStorage.getItem('memoryPalaceData');
+                if (savedData) {
+                    try {
+                        const data = JSON.parse(savedData);
+                        this.palaces = data.palaces || [];
+                        this.characters = data.characters || [];
+                        this.texts = (data.texts || []).map(t => ({
+                            ...t,
+                            stats: t.stats || { totalAttempts: 0, correctAnswers: 0 }
+                        }));
+                        this.stats = data.stats || { totalAttempts: 0, correctAnswers: 0 };
+
+                        this.repetitionPresets = data.repetitionPresets || [
+                            { name: 'Beginner Review', intervals: [1, 3, 7, 14] }
+                        ];
+
+                        this.prepareMemoryItems();
+                    } catch (error) {
+                        console.error('Error loading saved data:', error);
+                    }
+                }
+            }
+
+
+        };
+    }
+
+    function flashcardSwipe() {
+                return {
+                  flipped: false,
+                  offsetX: 0,
+                  offsetY: 0,
+                  rotation: 0,
+                  dragging: false,
+                  threshold: 100,
+                  preventFlip: false,
+                  tapStart: 0,
+                  startX: 0,
+                  tapTarget: null,
+                  shouldFlip: true,
+                  openLociImageModal(imageUrl) {
+                    setTimeout(() => {
+                      this.enlargedImage = imageUrl;
+                    }, 10);
+                  },
+                  init() {
+                    this.$refs.card.addEventListener('pointerdown', this.onStart.bind(this));
+                    window.addEventListener('pointerup', this.onEnd.bind(this));
+                    window.addEventListener('pointermove', this.onMove.bind(this));
+                  },
+
+                  onStart(e) {
+                    this.dragging = true;
+                    this.startX = e.clientX || e.touches?.[0]?.clientX;
+                  },
+
+                  onMove(e) {
+                    if (!this.dragging) return;
+                    const x = e.clientX || e.touches?.[0]?.clientX;
+                    this.offsetX = x - this.startX;
+                    this.rotation = this.offsetX / 10;
+                  },
+
+                  onEnd() {
+                    if (!this.dragging) return;
+                    this.dragging = false;
+
+                    if (this.offsetX < -this.threshold) {
+                      // Swipe left → next
+                      this.next('next');
+                    } else if (this.offsetX > this.threshold) {
+                      // Swipe right → previous
+                      this.next('previous');
+                    } else {
+                      // Reset
+                      this.offsetX = 0;
+                      this.rotation = 0;
+                    }
+                  },
+
+                  next(type) {
+                    this.offsetX = 0;
+                    this.rotation = 0;
+                    this.flipped = false;
+                    this.showAnswer = false;
+
+                    if (type === 'next') {
+                      this.$dispatch('next-flashcard'); // works fine already
+                    } else if (type === 'previous') {
+                      this.$el.dispatchEvent(
+                        new CustomEvent('previous-flashcard', { bubbles: true })
+                      );
+                    }
+                  }
+
+
+                };
+              }
+
+
+    document.addEventListener('alpine:init', () => {
+        Alpine.data('memoryApp', memoryApp);
+    });
+</script>
+</body>
+</html>
