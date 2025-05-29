@@ -1723,10 +1723,12 @@
             getRepetitionStatus(text) {
               const today = new Date().toISOString().split('T')[0];
               const next = text.repetition?.nextReview;
+
               if (!next) return 'none';
               if (next <= today) return 'due';
-              return 'upcoming'; // Simplified, you can expand as needed
+              return 'upcoming';
             },
+
 
             generateImagePrompt(line) {
                 return `Generate a vivid substitution image for memorizing a line of poetry using the PAO method.
@@ -2080,25 +2082,31 @@
             },
 
             loadRepetitionLists() {
-                const today = new Date().toISOString().split('T')[0];
+              const today = new Date().toISOString().split('T')[0];
 
-                this.scheduledTexts = [];
-                this.upcomingTexts = [];
-                this.unscheduledTexts = [];
+              this.scheduledTexts = [];
+              this.upcomingTexts = [];
+              this.unscheduledTexts = [];
 
-                this.texts.forEach(text => {
-                    const rep = text.repetition;
-                    if (rep && rep.active) {
-                        if (!rep.nextReview) {
-                            this.unscheduledTexts.push(text);
-                        } else if (rep.nextReview <= today) {
-                            this.scheduledTexts.push(text);
-                        } else {
-                            this.upcomingTexts.push(text);
-                        }
-                    }
-                });
+              this.texts.forEach(text => {
+                const rep = text.repetition;
+                const next = rep?.nextReview;
+
+                // 🆕 Handle unscheduled notes (no repetition or no nextReview)
+                if (!rep || !rep.active || !next) {
+                  this.unscheduledTexts.push(text);
+                }
+                // 🆕 Scheduled for today or past
+                else if (next <= today) {
+                  this.scheduledTexts.push(text);
+                }
+                // 🆕 Future date = upcoming
+                else {
+                  this.upcomingTexts.push(text);
+                }
+              });
             },
+
 
             startRepetitionReview(index) {
               this.currentRepetitionNote = this.dueTexts[index];
@@ -2467,7 +2475,7 @@
 
                   if (!name || !raw) return alert('Please enter a name and intervals.');
 
-                  const intervals = raw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n > 0);
+                  const intervals = raw.split(',').map(n => parseInt(n.trim())).filter(n => !isNaN(n) && n >= 0);
 
                   if (intervals.length === 0) return alert('Please enter valid positive numbers.');
 
