@@ -74,7 +74,7 @@
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
-  <div x-data="memoryApp()" @next-flashcard="nextPracticeItem()"  @previous-flashcard="previousPracticeItem()" x-cloak class="container mx-auto px-4 py-6">
+  <div x-data="memoryApp()" @next-flashcard="nextPracticeItem()"  @previous-flashcard="previousPracticeItem()" x-cloak class="container mx-auto">
     <!-- Header -->
     <header 
         x-show="!showPreviewModal && (!isMobile || isPracticeActive)" 
@@ -139,25 +139,55 @@
       <!-- Modernized Setup Tab with Sub-tabs for UX Clarity -->
       <div x-show="activeTab === 'setup'" class="space-y-8">
         <!-- Setup Dashboard (Responsive) -->
-        <div x-show="!setupSubTab" class="mt-4 px-4">
-          <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <template x-for="tab in [
-              { id: 'palaces', icon: '🏛', label: 'Palaces' },
-              { id: 'characters', icon: '🎭', label: 'Characters' },
-              { id: 'repetition', icon: '⏰', label: 'Repetition' },
-              { id: 'importExport', icon: '📁', label: 'Import/Export' }
-            ]" :key="tab.id">
-              <button 
-                @click="setupSubTab = tab.id"
-                class="bg-white border border-gray-200 rounded-xl shadow p-5 flex flex-col items-center justify-center text-center hover:bg-gray-50"
-              >
-                <span class="text-3xl mb-2" x-text="tab.icon"></span>
-                <span class="text-sm font-semibold text-gray-700" x-text="tab.label"></span>
-              </button>
-            </template>
+        <div x-show="!setupSubTab" class="relative">
+          <div class="bg-gradient-to-br from-indigo-500 to-blue-500 h-40 rounded-b-3xl text-white shadow">
+            <h2 class="text-xl font-semibold pt-14 text-center">Setup Dashboard</h2>
+          </div>
+          <div class="mt-[-40px] px-4 relative z-10 px-5">
+             <div class="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-5">
+              <template x-for="tab in [
+                { id: 'palaces', icon: '🏛', label: 'Palaces', color: 'bg-indigo-100 text-indigo-600', svg: 'building' },
+                { id: 'characters', icon: '🎭', label: 'Characters', color: 'bg-purple-100 text-purple-600', svg: 'users' },
+                { id: 'repetition', icon: '⏰', label: 'Repetition', color: 'bg-yellow-100 text-yellow-600', svg: 'repeat' },
+                { id: 'importExport', icon: '📁', label: 'Import/Export', color: 'bg-green-100 text-green-600', svg: 'folder-down' }
+              ]" :key="tab.id">
+                <button 
+                    @click="tab.clicked = true; setTimeout(() => tab.clicked = false, 200); setupSubTab = tab.id "
+                    class="bg-white hover:bg-gray-50 rounded-2xl shadow-md px-4 py-12 flex flex-col items-center justify-center transition transform hover:scale-[1.02] active:scale-95 active:shadow-inner text-center"
+                    
+                  >
+                  <!-- ICON WRAPPER -->
+                  <div :class="tab.color" class="w-14 h-14 flex items-center justify-center rounded-xl mb-4">
+                    <template x-if="tab.svg === 'building'">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 21h18M9 8h6m-3 3v10m-7 0v-6m14 6v-6M4 10h16V3H4v7z" />
+                      </svg>
+                    </template>
+                    <template x-if="tab.svg === 'users'">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a4 4 0 00-3-3.87M9 20h6M3 20h5v-2a4 4 0 00-3-3.87M12 4a4 4 0 110 8 4 4 0 010-8z" />
+                      </svg>
+                    </template>
+                    <template x-if="tab.svg === 'repeat'">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v6h6M20 20v-6h-6M20 4h-6v6m-6 6v6h6" />
+                      </svg>
+                    </template>
+                    <template x-if="tab.svg === 'folder-down'">
+                      <svg xmlns="http://www.w3.org/2000/svg" class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h8a2 2 0 012 2v10a2 2 0 01-2 2H5a2 2 0 01-2-2V7z" />
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-2-2m2 2l2-2" />
+                      </svg>
+                    </template>
+                  </div>
+
+                  <!-- LABEL -->
+                  <span class="text-base font-semibold text-gray-700" x-text="tab.label"></span>
+                </button>
+              </template>
+            </div>
           </div>
         </div>
-
 
         <!-- Memory Palaces Splash/List View -->
         <div x-show="setupSubTab === 'palaces' && !showPalaceForm" class="space-y-6 px-4 pb-20">
@@ -315,7 +345,6 @@
               </template>
             </div>
           </div>
-        
 
         <!-- Characters Tab (Splash / Gallery) -->
         <div x-show="setupSubTab === 'characters' && !showCharacterForm" class="space-y-6 px-4 pb-20">
@@ -407,8 +436,6 @@
           </div>
         </div>
 
-
-
         <!-- Spaced Repetition Presets -->
         <div x-show="setupSubTab === 'repetition'" class="bg-white rounded-2xl shadow p-6 border border-gray-100 space-y-6">
           <div class="flex items-center">
@@ -479,8 +506,8 @@
       <div x-show="activeTab === 'texts'" class="space-y-8">
         
         <!-- Saved Texts -->
-        <div class="px-6">
-          <h2 class="text-2xl font-semibold text-gray-800 mb-6">📚 Your Saved Texts</h2>
+        <div class="px-8">
+          <h2 class="text-xl font-semibold text-gray-800 mb-6 mt-10">Your Saved Texts</h2>
 
           <div class="grid sm:grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
 
@@ -571,10 +598,10 @@
           <div 
               x-show="!currentPracticeItem" 
               x-transition 
-              class="space-y-6"
+              class="space-y-6 mt-10 mx-4 relative"
             >
-
-            <h2 class="text-2xl font-semibold text-gray-800">🧠 Practice</h2>
+            
+            <h2 class="text-xl font-semibold text-gray-800"> Practice</h2>
 
             <!-- Note Picker -->
             <div style="margin-top: 15px;">
@@ -584,7 +611,7 @@
                       :class="isArabic(texts[selectedTextIndex]?.title) ? 'text-right' : 'text-left'"
                       class="w-full border border-indigo-200 rounded-lg px-4 py-2 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400"
                     >
-                    <option value="-1">📚 Choose...</option>
+                    <option value="-1">Choose...</option>
                     <template x-for="(text, index) in texts" :key="index">
                       <option 
                         :value="index" 
@@ -607,9 +634,9 @@
                     x-model="recallOrder"
                     class="w-full border border-indigo-200 rounded-lg px-4 py-2 bg-white shadow-sm focus:ring-2 focus:ring-indigo-400"
                   >
-                    <option value="normal">⏩ Normal Order</option>
-                    <option value="reverse">⏪ Reverse Order</option>
-                    <option value="random">🎲 Random Order</option>
+                    <option value="normal">Normal Order</option>
+                    <option value="reverse">Reverse Order</option>
+                    <option value="random">Random Order</option>
                   </select>
                 </div>
               </template>
@@ -624,7 +651,7 @@
                     'bg-indigo-600 text-white': practiceMode === mode.value,
                     'bg-white border text-gray-700': practiceMode !== mode.value
                   }"
-                  class="rounded-xl p-4 shadow-md border transition-all text-center font-medium"
+                  class="bg-white hover:bg-gray-50 rounded-2xl shadow-md px-4 py-6 flex flex-col items-center justify-center transition transform hover:scale-[1.02] active:scale-95 active:shadow-inner text-center"
                 >
                   <div class="text-xl mb-1" x-text="mode.icon"></div>
                   <div x-text="mode.label"></div>
@@ -644,11 +671,13 @@
             </div>
 
           </div>
+
+          
           <!-- Progress Display -->
           <div 
               x-show="currentPracticeItem" 
               x-transition 
-              class="space-y-4"
+              class="space-y-4 px-4 pt-8"
             >
               <!-- Back Button (Quiz Header) -->
               <div class="flex justify-between items-center mb-4">
@@ -1067,13 +1096,12 @@
                   </div>
                 </template>
 
-                
           </div>
 
         </div>
 
-        <div x-show="activeTab === 'repetition'" class="space-y-5 max-w-xl mx-auto px-4">
-          <h2 class="text-2xl font-bold text-gray-800 mt-4">📆 Review Calendar</h2>
+        <div x-show="activeTab === 'repetition'" class="space-y-5 max-w-xl mx-auto px-8">
+          <h2 class="text-xl font-bold text-gray-800 mt-10"> Review Calendar</h2>
 
           <!-- MODE TOGGLE -->
           <div class="flex gap-4 items-center mb-2">
@@ -1242,9 +1270,6 @@
             </div>
           </div>
         </div>
-
-
-
 
     </main>
 
@@ -1949,7 +1974,7 @@
 
                 this.reviewCalendarDays = days;
                 this.selectedReviewDate = this.formatDate(today); // Always reset to today
-              },
+          },
 
               texts: [
                 {
