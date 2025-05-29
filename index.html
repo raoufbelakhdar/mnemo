@@ -1072,60 +1072,93 @@
 
         </div>
 
-        <div x-show="activeTab === 'repetition'" class="space-y-8 max-w-xl mx-auto px-4">
-          <h2 class="text-2xl font-bold text-gray-800 mt-4">📅 Repetition Schedule</h2>
+        <div x-show="activeTab === 'repetition'" class="space-y-5 max-w-xl mx-auto px-4">
+          <h2 class="text-2xl font-bold text-gray-800 mt-4">📆 Review Calendar</h2>
 
-          <!-- DUE TODAY -->
-          <div>
-            <p class="text-sm font-semibold text-gray-500 mb-2">Due Today</p>
-            <template x-if="scheduledTexts.length > 0">
-              <div class="space-y-4">
-                <template x-for="(text, index) in scheduledTexts" :key="index">
-                  <div class="bg-white p-4 rounded-xl shadow border-l-4 border-red-500">
-                    <div class="flex justify-between items-center">
-                      <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
-                      <span class="text-xs text-gray-400">🔴 Due</span>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">⏰ <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
-                    <div class="flex gap-2 mt-3">
-                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Review</button>
-                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
-                    </div>
-                  </div>
-                </template>
-              </div>
-            </template>
-            <template x-if="scheduledTexts.length === 0">
-              <p class="text-sm text-gray-400 italic">No notes due today.</p>
+          <!-- MODE TOGGLE -->
+          <div class="flex gap-4 items-center mb-2">
+            <label class="text-sm font-semibold text-gray-700">Mode:</label>
+            <button 
+              @click="reviewMode = 'day'"
+              :class="reviewMode === 'day' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'"
+              class="px-3 py-1 text-sm rounded-full"
+            >Day</button>
+            <button 
+              @click="reviewMode = 'range'"
+              :class="reviewMode === 'range' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'"
+              class="px-3 py-1 text-sm rounded-full"
+            >Range</button>
+          </div>
+
+          <!-- FILTER BAR (only in Range Mode) -->
+          <div x-show="reviewMode === 'range'" class="flex items-center justify-start gap-3 mt-2">
+            <label class="text-sm font-medium text-gray-700">Filter:</label>
+            <div class="flex gap-2">
+              <button
+                @click="calendarFilter = 'today'; generateReviewCalendar()"
+                :class="calendarFilter === 'today' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'"
+                class="px-3 py-1 rounded-full text-sm"
+              >Today</button>
+              <button
+                @click="calendarFilter = 'week'; generateReviewCalendar()"
+                :class="calendarFilter === 'week' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'"
+                class="px-3 py-1 rounded-full text-sm"
+              >Week</button>
+              <button
+                @click="calendarFilter = 'month'; generateReviewCalendar()"
+                :class="calendarFilter === 'month' ? 'bg-indigo-600 text-white' : 'bg-gray-200 text-gray-800'"
+                class="px-3 py-1 rounded-full text-sm"
+              >Month</button>
+            </div>
+          </div>
+
+          <!-- Date Strip (only in Day Mode) -->
+          <div x-show="reviewMode === 'day'" class="flex space-x-2 overflow-x-auto py-2">
+            <template x-for="day in reviewCalendarDays" :key="day.date">
+              <button 
+                @click="selectedReviewDate = day.date"
+                class="flex flex-col items-center justify-center px-3 py-1 rounded-md border shadow-sm min-w-[60px]"
+                :class="selectedReviewDate === day.date ? 'bg-indigo-600 text-white' : 'bg-white text-gray-800'"
+              >
+                <span class="text-sm font-semibold" x-text="day.day"></span>
+                <span class="text-xs" x-text="day.label"></span>
+                <span 
+                  x-show="day.hasReviews"
+                  class="w-2 h-2 mt-1 rounded-full"
+                  :class="{
+                    'bg-red-500': day.status === 'due',
+                    'bg-yellow-400': day.status === 'upcoming',
+                    'bg-green-500': day.status === 'done'
+                  }"
+                ></span>
+              </button>
             </template>
           </div>
 
-          <!-- UPCOMING -->
-          <div>
-            <p class="text-sm font-semibold text-gray-500 mb-2">Upcoming</p>
-            <template x-if="upcomingTexts.length > 0">
-              <div class="space-y-4">
-                <template x-for="(text, index) in upcomingTexts" :key="index">
-                  <div class="bg-white p-4 rounded-xl shadow border-l-4 border-yellow-400">
-                    <div class="flex justify-between items-center">
-                      <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
-                      <span class="text-xs text-gray-400">🟡 Upcoming</span>
-                    </div>
-                    <p class="text-sm text-gray-500 mt-1">📅 <span x-text="formatDate(text.repetition?.nextReview)"></span></p>
-                    <div class="flex gap-2 mt-3">
-                      <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Preview</button>
-                      <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
-                    </div>
+
+          <!-- Notes List -->
+          <div class="space-y-4">
+            <template x-if="filteredReviewNotes.length > 0">
+              <template x-for="(text, index) in filteredReviewNotes" :key="index">
+                <div class="bg-white p-4 rounded-xl shadow border-l-4 border-indigo-500">
+                  <div class="flex justify-between items-center">
+                    <h4 class="font-semibold text-gray-800 text-base" x-text="text.title"></h4>
+                    <span class="text-xs text-gray-400" x-text="formatDate(text.repetition?.nextReview)"></span>
                   </div>
-                </template>
-              </div>
+                  <p class="text-sm text-gray-500 mt-1" x-text="text.content.substring(0, 100) + '…'"></p>
+                  <div class="flex gap-2 mt-3">
+                    <button @click="startRepetitionReviewFromText(text)" class="bg-indigo-600 text-white text-xs px-3 py-1 rounded-full">Review</button>
+                    <button @click="goToPracticeWithNote(text)" class="bg-green-600 text-white text-xs px-3 py-1 rounded-full">Practice</button>
+                  </div>
+                </div>
+              </template>
             </template>
-            <template x-if="upcomingTexts.length === 0">
-              <p class="text-sm text-gray-400 italic">No upcoming notes.</p>
+            <template x-if="filteredReviewNotes.length === 0">
+              <p class="text-sm text-gray-400 italic text-center">No notes to review.</p>
             </template>
           </div>
 
-          <!-- UNSCHEDULED -->
+          <!-- Unscheduled Notes -->
           <div>
             <p class="text-sm font-semibold text-gray-500 mb-2">Unscheduled</p>
             <template x-if="unscheduledTexts.length > 0">
@@ -1208,9 +1241,10 @@
               </div>
             </div>
           </div>
-
-
         </div>
+
+
+
 
     </main>
 
@@ -1507,7 +1541,6 @@
       </div>
     </div>
 
-
     <!-- Character Edit Modal -->
     <div 
       x-show="editingCharacterIndex !== null" 
@@ -1592,7 +1625,6 @@
         </button>
       </template>
     </nav>
-      
 
   </div>
 
@@ -1670,6 +1702,8 @@
             showNoteEditor: false,
             isPracticeActive: false,
             showStats: false,
+            reviewMode: 'day',
+            calendarFilter: 'today',
 
             exitPractice() {
               this.currentPracticeItem = null;
@@ -1851,7 +1885,7 @@
                 window.addEventListener('resize', () => {
                   this.isMobile = window.innerWidth < 640;
               });
-              
+              this.generateReviewCalendar();
             },
 
             getPalaceName(index) {
@@ -1876,6 +1910,69 @@
                 this.showPreviewModal = false;
               }
             },
+
+            generateReviewCalendar() {
+                const today = new Date();
+                const days = [];
+                let range = 0;
+
+                if (this.calendarFilter === 'today') {
+                  range = 0;
+                } else if (this.calendarFilter === 'week') {
+                  range = 7;
+                } else if (this.calendarFilter === 'month') {
+                  range = 30;
+                }
+
+                for (let i = -3; i <= range; i++) {
+                  const date = new Date(today);
+                  date.setDate(today.getDate() + i);
+
+                  const dateStr = this.formatDate(date);
+                  const notesForDay = this.texts.filter(text => this.formatDate(text.repetition?.nextReview) === dateStr);
+
+                  let status = 'done';
+                  if (notesForDay.some(text => new Date(text.repetition?.nextReview) < today)) {
+                    status = 'due';
+                  } else if (notesForDay.length > 0) {
+                    status = 'upcoming';
+                  }
+
+                  days.push({
+                    date: dateStr,
+                    day: date.getDate(),
+                    label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+                    hasReviews: notesForDay.length > 0,
+                    status
+                  });
+                }
+
+                this.reviewCalendarDays = days;
+                this.selectedReviewDate = this.formatDate(today); // Always reset to today
+              },
+
+              texts: [
+                {
+                  title: "Today Note",
+                  content: "This is due today.",
+                  repetition: { nextReview: new Date().toISOString() }
+                },
+                {
+                  title: "Tomorrow Note",
+                  content: "This is due tomorrow.",
+                  repetition: { nextReview: new Date(Date.now() + 1 * 24 * 60 * 60 * 1000).toISOString() }
+                },
+                {
+                  title: "Next Week Note",
+                  content: "This is due in 7 days.",
+                  repetition: { nextReview: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString() }
+                },
+                {
+                  title: "Next Month Note",
+                  content: "This is due in 20 days.",
+                  repetition: { nextReview: new Date(Date.now() + 20 * 24 * 60 * 60 * 1000).toISOString() }
+                }
+              ],
 
 
             // Sample data for first-time users
@@ -2509,6 +2606,73 @@
 
             cancelCharacterEdit() {
               this.editingCharacterIndex = null;
+            },
+
+
+            reviewCalendarDays: [],
+            selectedReviewDate: null,
+
+            get filteredReviewNotes() {
+              const texts = this.texts;
+              if (this.reviewMode === 'day') {
+                return texts.filter(text => {
+                  const reviewDate = text.repetition?.nextReview;
+                  return reviewDate && this.formatDate(reviewDate) === this.selectedReviewDate;
+                });
+              }
+
+              const start = new Date();
+              start.setHours(0, 0, 0, 0); // Strip time
+              const end = new Date(start);
+
+              if (this.calendarFilter === 'week') end.setDate(start.getDate() + 6);
+              else if (this.calendarFilter === 'month') end.setDate(start.getDate() + 29);
+
+              return texts.filter(text => {
+                const reviewDate = text.repetition?.nextReview;
+                if (!reviewDate) return false;
+                const d = new Date(reviewDate);
+                d.setHours(0, 0, 0, 0);
+                return d >= start && d <= end;
+
+              });
+            },
+            
+            generateReviewCalendar() {
+              const today = new Date();
+              const days = [];
+
+              for (let i = -3; i <= 10; i++) {
+                const date = new Date(today);
+                date.setDate(today.getDate() + i);
+
+                const dateStr = this.formatDate(date);
+                const notesForDay = this.texts.filter(text => this.formatDate(text.repetition?.nextReview) === dateStr);
+
+                let status = 'done';
+                if (notesForDay.some(text => new Date(text.repetition?.nextReview) < today)) {
+                  status = 'due';
+                } else if (notesForDay.length > 0) {
+                  status = 'upcoming';
+                }
+
+                days.push({
+                  date: dateStr,
+                  day: date.getDate(),
+                  label: date.toLocaleDateString(undefined, { weekday: 'short' }),
+                  hasReviews: notesForDay.length > 0,
+                  status
+                });
+              }
+
+              this.reviewCalendarDays = days;
+              this.selectedReviewDate = this.formatDate(today); // default to today
+            },
+
+            formatDate(date) {
+              if (!date) return '';
+              const d = new Date(date);
+              return d.toISOString().split('T')[0];
             },
 
 
