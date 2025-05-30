@@ -136,7 +136,7 @@
 
     <!-- Main Content -->
     <main style="padding-bottom: 64px;">
-      <!-- Modernized Setup Tab with Sub-tabs for UX Clarity -->
+      <!--  Setup Tab with Sub-tabs for UX Clarity -->
       <div x-show="activeTab === 'setup'" class="space-y-8">
         <!-- Setup Dashboard (Responsive) -->
         <div x-show="!setupSubTab" class="relative">
@@ -560,9 +560,11 @@
                 repetitionPreset: '',
                 lines: [],
                 repetition: null,
-                stats: { totalAttempts: 0, correctAnswers: 0 }
+                stats: { totalAttempts: 0, correctAnswers: 0 },
+                useCharacters: true
               };
               showNoteEditor = true;
+              
             "
             class="bg-indigo-600 text-white px-4 py-2 rounded-lg shadow hover:bg-indigo-700 hidden sm:inline-block"
           >
@@ -580,7 +582,8 @@
                 repetitionPreset: '',
                 lines: [],
                 repetition: null,
-                stats: { totalAttempts: 0, correctAnswers: 0 }
+                stats: { totalAttempts: 0, correctAnswers: 0 },
+                useCharacters: true
               };
               showNoteEditor = true;
             "
@@ -651,7 +654,7 @@
                     'bg-indigo-600 text-white': practiceMode === mode.value,
                     'bg-white border text-gray-700': practiceMode !== mode.value
                   }"
-                  class="bg-white hover:bg-gray-50 rounded-2xl shadow-md px-4 py-6 flex flex-col items-center justify-center transition transform hover:scale-[1.02] active:scale-95 active:shadow-inner text-center"
+                  class="bg-white rounded-2xl shadow-md px-4 py-6 flex flex-col items-center justify-center transition transform hover:scale-[1.02] active:scale-95 active:shadow-inner text-center"
                 >
                   <div class="text-xl mb-1" x-text="mode.icon"></div>
                   <div x-text="mode.label"></div>
@@ -695,7 +698,7 @@
                     
                     <!-- Flip Card Container -->
                     <div 
-                      class="w-full h-[420px] perspective"
+                      class="w-full h-[440px] perspective"
                       @pointerdown="
                         startX = $event.clientX;
                         tapStart = Date.now();
@@ -721,18 +724,29 @@
                         :style="`transform: translateX(${offsetX}px) rotate(${rotation}deg) ${flipped ? 'rotateY(180deg)' : ''}; transition: ${dragging ? 'none' : 'transform 0.3s ease'}`"
                       >
                         <!-- Front Side -->
-                        <div class="absolute inset-0 backface-hidden p-6 flex flex-col items-center text-center space-y-6">
+                        <div class="absolute inset-0 backface-hidden p-6 flex flex-col text-center overflow-hidden"
+                            :class="texts[selectedTextIndex]?.useCharacters ? 'justify-start space-y-4 items-center' : 'justify-center items-center'">
                           <!-- Character Image -->
-                          <img 
-                            :src="(characters.find(c => c.name === currentPracticeItem.character)?.image || '/images/characters/default.png')" 
-                            class="w-28 h-28 rounded-full border-4 border-indigo-400 shadow-md transition-transform duration-300"
-                          >
+                          <div x-show="texts[selectedTextIndex]?.useCharacters" class="flex flex-col items-center space-y-2">
+                            
+                              <!-- Character Image -->
+                              <img 
+                                :src="(characters.find(c => c.name === currentPracticeItem.character)?.image || '/images/characters/default.png')" 
+                                class="w-28 h-28 rounded-full border-4 border-indigo-400 shadow-md transition-transform duration-300"
+                              />
 
-                          <!-- Character Name -->
-                          <h3 class="text-2xl font-bold text-indigo-700 tracking-tight" x-text="currentPracticeItem.character || 'No character'"></h3>
+                              <!-- Character Name -->
+                              <h3 class="text-l font-bold text-indigo-700 tracking-tight" x-text="currentPracticeItem.character || 'No character'"></h3>
+                            
+                          </div>
+                          <!-- Line -->
+                          <div>
+                            <!-- <h4 class="text-l font-semibold text-indigo-700 mb-1">Memorized Line</h4> -->
+                            <p :dir="isArabic(currentPracticeItem.text) ? 'rtl' : 'ltr'" class="text-xl text-center leading-relaxed text-gray-800 whitespace-pre-line" x-text="currentPracticeItem.text" style="line-height: 1.4;"></p>
 
+                          </div>
                           <!-- Location -->
-                          <div class="w-full">
+                          <div class="w-full mt-4">
                             <div class="no-flip">
                               <img 
                                 :src="getLociImage(currentPracticeItem.loci) || '/images/locations/default.jpg'" 
@@ -750,12 +764,7 @@
                         <div 
                           class="absolute inset-0 backface-hidden rotate-y-180 p-6 flex flex-col space-y-6 bg-gradient-to-br from-indigo-50 to-white text-gray-800 rounded-3xl shadow-inner overflow-y-auto"
                         >
-                          <!-- Line -->
-                          <div>
-                            <h4 class="text-xl font-semibold text-indigo-700 mb-2">📝 Memorized Line</h4>
-                            <p :dir="isArabic(currentPracticeItem.text) ? 'rtl' : 'ltr'" class="text-base leading-relaxed text-gray-800 whitespace-pre-line" x-text="currentPracticeItem.text"></p>
-
-                          </div>
+                          
 
                           <!-- Substitution / Mnemonic -->
                           <div>
@@ -796,15 +805,19 @@
                     <h3 class="text-2xl font-semibold text-indigo-700 text-center">🧠 Line Recall</h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div class="bg-indigo-50 p-4 rounded-lg text-center">
-                        <p class="text-sm font-semibold text-indigo-500">Character</p>
-                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
-                      </div>
+                      <template x-if="texts[selectedTextIndex]?.useCharacters">
+                        <div class="bg-indigo-50 p-4 rounded-lg text-center">
+                          <p class="text-sm font-semibold text-indigo-500">Character</p>
+                          <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
+                        </div>
+                      </template>
+
                       <div class="bg-indigo-50 p-4 rounded-lg text-center">
                         <p class="text-sm font-semibold text-indigo-500">Location</p>
                         <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.loci || 'None'"></p>
                       </div>
                     </div>
+
 
                     <div class="pt-4">
                       <label class="block text-sm font-medium text-gray-700 mb-2">✍️ Type the line from memory</label>
@@ -846,15 +859,17 @@
                       </div>
 
                       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                          <label class="block text-sm font-medium text-gray-700 mb-1">🙋 Who is the character?</label>
-                          <input 
-                            x-model="userResponseCharacter" 
-                            :disabled="showAnswer" 
-                            class="w-full border-2 border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-400" 
-                            placeholder="Type the character's name..."
-                          />
-                        </div>
+                        <template x-if="texts[selectedTextIndex]?.useCharacters">
+                          <div>
+                            <label class="block text-sm font-medium text-gray-700 mb-1">🙋 Who is the character?</label>
+                            <input 
+                              x-model="userResponseCharacter" 
+                              :disabled="showAnswer" 
+                              class="w-full border-2 border-indigo-200 rounded-lg px-4 py-2 focus:ring-2 focus:ring-indigo-400" 
+                              placeholder="Type the character's name..."
+                            />
+                          </div>
+                        </template>
 
                         <div>
                           <label class="block text-sm font-medium text-gray-700 mb-1">📍 What is the location?</label>
@@ -866,6 +881,7 @@
                           />
                         </div>
                       </div>
+
 
                       <div class="flex justify-end gap-4 pt-4">
                         <template x-if="!showAnswer">
@@ -891,15 +907,19 @@
                     <h3 class="text-2xl font-semibold text-indigo-700 text-center">📝 Fill in the Blanks</h3>
 
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-center">
-                      <div class="bg-indigo-50 p-4 rounded-lg">
-                        <p class="text-sm font-semibold text-indigo-500">Character</p>
-                        <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
-                      </div>
+                      <template x-if="texts[selectedTextIndex]?.useCharacters">
+                        <div class="bg-indigo-50 p-4 rounded-lg">
+                          <p class="text-sm font-semibold text-indigo-500">Character</p>
+                          <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.character || 'None'"></p>
+                        </div>
+                      </template>
+
                       <div class="bg-indigo-50 p-4 rounded-lg">
                         <p class="text-sm font-semibold text-indigo-500">Location</p>
                         <p class="text-lg font-bold text-indigo-800 mt-1" x-text="currentPracticeItem.loci || 'None'"></p>
                       </div>
                     </div>
+
 
                     <div 
                         :dir="isArabic(currentPracticeItem?.text) ? 'rtl' : 'ltr'" 
@@ -1384,6 +1404,12 @@
               </select>
             </div>
 
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Assign Characters to Lines?</label>
+              <input type="checkbox" x-model="newText.useCharacters" class="mr-2">
+              <span class="text-sm text-gray-600">Enable character assignments</span>
+            </div>
+
             <div class="flex justify-between">
               <button 
                 @click="splitTextIntoLines()"
@@ -1424,16 +1450,18 @@
                     <tr class="align-top">
                       <td class="px-3 py-4 text-sm text-gray-900 max-w-xs" x-text="line.text"></td>
                       <td class="px-3 py-4 text-sm">
-                        <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
-                          <option value="">Select character...</option>
-                          <template x-for="(character, cIndex) in characters" :key="cIndex">
-                            <option 
-                              :value="character.name" 
-                              x-text="character.name" 
-                              :selected="line.character === character.name"
-                            ></option>
-                          </template>
-                        </select>
+
+                        <template x-if="newText.useCharacters">
+                          <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                            <option value="">Select character...</option>
+                            <template x-for="(character, cIndex) in characters" :key="cIndex">
+                              <option :value="character.name" x-text="character.name" :selected="line.character === character.name"></option>
+                            </template>
+                          </select>
+                        </template>
+                        <template x-if="!newText.useCharacters">
+                          <span class="text-gray-400 italic">Disabled</span>
+                        </template>
 
                       </td>
                       <td class="px-3 py-4 text-sm">
@@ -1475,17 +1503,25 @@
                   </div>
                   <div>
                     <label class="text-xs font-semibold text-gray-500 block">Character</label>
-                    <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
-                      <option value="">Select character...</option>
-                      <template x-for="(character, cIndex) in characters" :key="cIndex">
-                        <option 
-                          :value="character.name" 
-                          x-text="character.name" 
-                          :selected="line.character === character.name"
-                        ></option>
-                      </template>
-                    </select>
+
+                    <template x-if="newText.useCharacters">
+                      <select x-model="line.character" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                        <option value="">Select character...</option>
+                        <template x-for="(character, cIndex) in characters" :key="cIndex">
+                          <option 
+                            :value="character.name" 
+                            x-text="character.name" 
+                            :selected="line.character === character.name"
+                          ></option>
+                        </template>
+                      </select>
+                    </template>
+
+                    <template x-if="!newText.useCharacters">
+                      <span class="text-gray-400 italic">Disabled</span>
+                    </template>
                   </div>
+
                   <div>
                     <label class="text-xs font-semibold text-gray-500 block">Location</label>
                     <select x-model="line.loci" class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
@@ -1547,7 +1583,7 @@
             
           </div>
         </template>
-<!-- Save Button - Floating Bottom Right -->
+        <!-- Save Button - Floating Bottom Right -->
         <div 
           x-show="newText.lines.length > 0"
           x-transition
@@ -1931,10 +1967,24 @@
               if (index !== -1) {
                 this.editingTextIndex = index;
                 this.newText = JSON.parse(JSON.stringify(this.texts[index]));
+
+                if (this.newText.useCharacters === undefined) {
+                  this.newText.useCharacters = true; // ✅ default to true
+                }
+
+                // ✅ Ensure each line has all necessary fields
+                this.newText.lines = this.newText.lines.map(line => ({
+                  text: line.text || '',
+                  character: line.character || '', // ✅ make sure it's preserved
+                  loci: line.loci || '',
+                  substitution: line.substitution || ''
+                }));
+
                 this.showNoteEditor = true;
                 this.showPreviewModal = false;
               }
             },
+
 
             generateReviewCalendar() {
                 const today = new Date();
@@ -2070,6 +2120,7 @@
                     title: this.newText.title,
                     content: this.newText.content,
                     palaceIndex: this.newText.palaceIndex,
+                    useCharacters: this.newText.useCharacters,
                     lines: this.newText.lines,
                     repetitionPreset: this.newText.repetitionPreset,
                     stats: {
@@ -2121,6 +2172,9 @@
             editText(index) {
               this.editingTextIndex = index;
               this.newText = JSON.parse(JSON.stringify(this.texts[index]));
+              if (this.newText.useCharacters === undefined) {
+                this.newText.useCharacters = true; // ✅ default to true if missing
+              }
               this.showNewTextForm = true;
             },
             
@@ -2288,6 +2342,7 @@
                 const selectedText = this.texts[this.selectedTextIndex];
                 let items = selectedText.lines.map(line => ({
                     ...line,
+                    character: selectedText.useCharacters ? line.character : null,
                     textTitle: selectedText.title
                 }));
                 
